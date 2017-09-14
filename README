@@ -1,4 +1,6 @@
-javax.json JAR comes from
+I was trying to use javax.json, with the JAR file coming  from
 http://www.java2s.com/Code/Jar/j/Downloadjavaxjson102jar.htm
-or from here
+or from 
 https://mvnrepository.com/artifact/org.glassfish/javax.json/1.1
+However, that library was a lot slower than org.json (source code from Github),
+so I reverted to the latter.

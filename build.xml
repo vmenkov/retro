@@ -44,10 +44,10 @@
 <path id="classpath"
        description="The classpath to use for compiling and running AXS">
   <!-- from the lib directory, take all third-party JAR files, but not our axs.jar -->
-   <fileset dir="${lib}">
+   <!-- fileset dir="${lib}">
      <include name="javax.json-1.0.2.jar"/>
      <exclude name="axs.jar"/>
-   </fileset>
+   </fileset -->
  </path>
 
  <echo message="Path = ${toString:classpath}"/>

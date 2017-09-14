@@ -3,6 +3,7 @@ package edu.rutgers.retro;
 import java.io.*;
 import java.util.*;
 import java.util.regex.*;
+import java.text.*;
 
 /** A tool to find usage files (whose names are date-based) within a specified
     directory tree, possibly subject to a date range restriction.
@@ -18,12 +19,15 @@ import java.util.regex.*;
 public class ListFiles {
     /** YYMMDD */
     private static final Pattern datePattern6 = Pattern.compile("[0-9][0-9][0-9][0-9][0-9][0-9]");
-   /** YYMMDD_usage */
+   /** Pattern for file names: YYMMDD_usage */
     private static final Pattern fnamePattern6 = Pattern.compile("[0-9][0-9][0-9][0-9][0-9][0-9]_usage");
  
-    /** YYYY */
+    /** Pattern for subdirectory names: YYYY */
   private static final Pattern yearPattern4 = Pattern.compile("[0-9][0-9][0-9][0-9]");
 
+    /** Optional restrictions for the date range, in the YYMMDD
+	format. A null value means the absence of a restriction in
+	this direction. */
     private String usageFrom, usageTo;
     File root;
     /** 
@@ -36,16 +40,21 @@ public class ListFiles {
 	root = _root;
     }
 
+    static DecimalFormat fmtD4 = new DecimalFormat("0000");
+    
     /** @param Dir name, in the format '20YY' */
     private boolean acceptYearDir(String name) {
-	if (usageFrom != null && name.compareTo("20" + usageFrom)<0) return false;
+	int y = Integer.parseInt(name) + 1; // next year
+	String nextYearName = fmtD4.format(y);
+	
+	if (usageFrom != null && nextYearName.compareTo("20" + usageFrom)<0) return false;
 	if (usageTo != null && name.compareTo("20" + usageTo)>0) return false;
 	return true;
     }
 
-    /** Returns true if the name describes a date, and the date is within
+    /** Returns true if the file name describes a date, and the date is within
 	the selector's range.
-	@param name YYMMDD_usage.... */
+	@param name A file name, in the form "YYMMDD_usage....." */
     private boolean acceptDay(String name) {
 	Matcher dm = fnamePattern6.matcher(name);
 	if (!dm.find() || dm.start()>0) return false;
@@ -55,8 +64,13 @@ public class ListFiles {
 	return true;
    }
 
+    /** Obtains a sorted list of "acceptable" files from a single year's
+	directory. No recursion into subdirs is done here, as at this point
+	all data files are supposed to be on the same level.
+    */
     private Vector<File> filesFromYearDir(File dir) {
 	String[] fnames = dir.list();
+	Arrays.sort(fnames);
 	Vector<File> v = new Vector<File>();
 	for(String q: fnames) {
 	    File f = new File(dir, q);
@@ -69,14 +83,20 @@ public class ListFiles {
 	return v;
     } 
 
+    /** Recursively creates the list of daily usage files from a specified
+	directory tree, subject to date restriction. Recursion won't go
+	deeper than the yearly directories, though.
+     */
     private Vector<File> filesFromDir(File dir) {
 	String name=dir.getName();
 	Matcher ym = yearPattern4.matcher(name);
-	if (ym.matches()) {  // dir=YYYY
+	if (ym.matches()) {
+	    // dir=YYYY ; list files in this dir, w/o further recursion
 	    return  acceptYearDir(name) ? filesFromYearDir(dir) :
 		new Vector<File>();
 	} else { // any other dir name; we recurse here
 	    String[] fnames = dir.list();
+	    Arrays.sort(fnames);
 	    Vector<File> v = new Vector<File>();
 	    for(String q: fnames) {
 		File f = new File(dir, q);
