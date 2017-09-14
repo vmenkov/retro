@@ -6,8 +6,7 @@ import java.util.regex.*;
 
 //import javax.persistence.*;
 
-//import org.json.*;
-import javax.json.*;
+import org.json.*;
 
 /** Information about registered Arxiv users, from tc.json. It links
     a registered user to the list of cookies known to be associated
@@ -17,14 +16,14 @@ class ArxivUserTable  {
     HashMap<String,Vector<String>> user2cookies = new HashMap<String,Vector<String>>();
     HashMap<String,String> cookie2user =  new HashMap<String,String>();
     
-    ArxivUserTable(String fname) throws IOException, JsonException {
-	JsonObject jsoOuter = Json.readJsonFile(fname);
-	Set<String> names = jsoOuter.keySet();
-	System.out.println("Processing user activity file that has data for " + names.size() + " users...");
-	int keyCnt=0, cnt=0;
+    ArxivUserTable(String fname) throws IOException, JSONException {
+	JSONObject jsoOuter = Json.readJsonFile(fname);
+	String [] names = JSONObject.getNames(jsoOuter);
+	System.out.println("User activity file has data for " + names.length + " users");
+	int cnt=0, keyCnt=0;
 	for(String u: names) {
-	    JsonArray a = jsoOuter.getJsonArray(u);
-	    final int n=a.size();
+	    JSONArray a = jsoOuter.getJSONArray(u);
+	    final int n=a.length();
 	    Vector<String> v= new Vector<String>(n); 
 	    for(int i=0; i<n; i++) {
 		String cookie = a.getString(i);
@@ -36,10 +35,10 @@ class ArxivUserTable  {
 	    cnt += n;
 	    if (keyCnt%1000==0) System.out.println("key cnt=" + keyCnt +", val cnt=" + cnt +", u=" + u);
 	}
-	System.out.println("User activity file "+fname+" contains "+cnt+" cookies for " + names.size() + " users");
+	System.out.println("User activity file "+fname+" contains "+cnt+" cookies for " + names.length + " users");
     }
 
-   public static void main(String [] argv) throws IOException, JsonException {
+   public static void main(String [] argv) throws IOException, JSONException {
 
 	if (argv.length != 1) {
 	    System.out.println("Usage: ArxivUserTable filename.js");

@@ -8,12 +8,9 @@ import java.text.*;
 
 //import javax.persistence.*;
 
-//import org.json.*;
-import javax.json.*;
+import org.json.*;
+//import javax.json.*;
 
-//import edu.rutgers.axs.indexer.Common;
-//import edu.rutgers.axs.sql.Categories;
-//import edu.rutgers.axs.sql.DataFile;
 
 /** Collecting statistics about users from arxiv.org usage logs */
 public class UserStats {
@@ -31,7 +28,7 @@ public class UserStats {
 	boolean userAgentsVary=false;
 	UserInfo(String _uid, int utc, String _userAgent) {
 	    uid = _uid;
-	    utc0 = utc1;
+	    utc0 = utc1 = utc;
 	    cnt = 1;
 	    userAgent = _userAgent;
 	}
@@ -51,36 +48,40 @@ public class UserStats {
 
     int unexpectedActionCnt = 0;		
   	
-    void addFromJsonFile(File f) throws IOException, JsonException {
+    void addFromJsonFile(File f) throws IOException, JSONException {
 
-	JsonObject jsoOuter = Json.readJsonFile(f);
-	JsonArray jsa = jsoOuter.getJsonArray("entries");
-	int len = jsa.size();
+	JSONObject jsoOuter = Json.readJsonFile(f);
+	JSONArray jsa = jsoOuter.getJSONArray("entries");
+	int len = jsa.length();
+	System.out.println("Length of the JSON data array = " + len);
+
 	System.out.println("Json data file action entry count = " + len);
 
 	int cnt=0, ignorableActionCnt=0, invalidAidCnt = 0, unexpectedActionCnt=0, botCnt=0;
 	for(int i=0; i< len; i++) {
-	    JsonObject jso = jsa.getJsonObject(i);
+	    JSONObject jso = jsa.getJSONObject(i);
 	    String type =  jso.getString( "type");
 
-	    String arxiv_id=jso.getString( "arxiv_id",null);
+	    //	    String arxiv_id=jso.getString( "arxiv_id",null);
 	    if (Json.typeIsAcceptable(type)) {
-		if (arxiv_id==null) throw new IllegalArgumentException("No arxiv_id field in entry: " + jso);
+		if (!jso.has("arxiv_id"))  throw new IllegalArgumentException("No arxiv_id field in entry: " + jso);
 	    } else {
 		ignorableActionCnt++;
-		if (arxiv_id!=null)    unexpectedActionCnt++;
+		if (jso.has("arxiv_id"))    unexpectedActionCnt++;
 		continue;		
 	    } 
 
 
 	    String ip_hash = jso.getString("ip_hash");
-	    String aid = Json.canonicAid(arxiv_id);
+	    String arxiv_id=jso.getString( "arxiv_id");
+ 	    String aid = Json.canonicAid(arxiv_id);
 	    String cookie = jso.getString("cookie_hash");
 	    if (cookie==null) cookie = jso.getString("cookie");
 	    if (cookie==null) cookie = "";
 	    // Older logs have some entries w/o user_agent, but these are
 	    // extremely few (16 out of 500,000 in one sample)
-	    String user_agent = jso.getString("user_agent", "unknown");
+	    String user_agent = jso.has("user_agent") ? 
+		jso.getString("user_agent") : "unknown";
 	    if (skipBots && isKnownBot(user_agent)) {
 		botCnt++;
 		continue;
@@ -183,7 +184,7 @@ public class UserStats {
     private static ParseConfig ht = null;
     private static boolean skipBots=true;
 
-    public static void main(String [] argv) throws IOException, java.text.ParseException, JsonException {
+    public static void main(String [] argv) throws IOException, java.text.ParseException, JSONException {
 
 	ht = new ParseConfig();
 	skipBots = ht.getBoolean("skipBots", skipBots);

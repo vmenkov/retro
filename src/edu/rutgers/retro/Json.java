@@ -8,8 +8,7 @@ import java.text.*;
 
 //import javax.persistence.*;
 
-//import org.json.*;
-import javax.json.*;
+import org.json.*;
 
 //import edu.rutgers.axs.indexer.Common;
 //import edu.rutgers.axs.sql.Categories;
@@ -56,26 +55,23 @@ import javax.json.*;
     */
 public class Json {
 
-    public static JsonObject readJsonFile(String fname) throws IOException, JsonException {
+    public static JSONObject readJsonFile(String fname) throws IOException, JSONException {
 	return readJsonFile(new File(fname));
     }
 
-    public static JsonObject readJsonFile(File f) throws IOException, JsonException {
+    public static JSONObject readJsonFile(File f) throws IOException, JSONException {
 	Reader fr = f.getName().endsWith(".gz") ?
 	    new InputStreamReader(new GZIPInputStream(new FileInputStream(f))) :
 	    new FileReader(f);
-	//	JsonTokener tok = new JsonTokener(fr);
-	//	JsonObject jsoOuter = new JsonObject(tok);
-
-	JsonReader tok =  javax.json.Json.createReader(fr);
-	JsonObject jsoOuter = tok.readObject();
+	JSONTokener tok = new JSONTokener(fr);
+	JSONObject jsoOuter = new JSONObject(tok);
 	fr.close();
 	return jsoOuter;
     }
 
 
 
-    /** Do we process Json records with this particular action type?
+    /** Do we process JSON records with this particular action type?
      */
     static boolean typeIsAcceptable(String x) {
 	final String types[] = {
@@ -112,34 +108,34 @@ public class Json {
 	return aid;
     } 
 
-    /** Reads a Json file, extracts relevant entries, and writes them
+    /** Reads a JSON file, extracts relevant entries, and writes them
 	into separate files (one per category).
 
 	@param fname The input file name (complete path)
      */
-    static void splitJsonFile(String fname) throws IOException, JsonException {
+    static void splitJsonFile(String fname) throws IOException, JSONException {
 
-	JsonObject jsoOuter = Json.readJsonFile(fname);
-	JsonArray jsa = jsoOuter.getJsonArray("entries");
-	int len = jsa.size();
-	System.out.println("Length of the Json data array = " + len);
+	JSONObject jsoOuter = Json.readJsonFile(fname);
+	JSONArray jsa = jsoOuter.getJSONArray("entries");
+	int len = jsa.length();
+	System.out.println("Length of the JSON data array = " + len);
 
 	DataSaver saver = new DataSaver(fname);
 
 	int cnt=0, ignorableActionCnt=0, invalidAidCnt = 0, unexpectedActionCnt=0;
 	for(int i=0; i< len; i++) {
-	    JsonObject jso = jsa.getJsonObject(i);
+	    JSONObject jso = jsa.getJSONObject(i);
 	    String type =  jso.getString( "type");
 	    if (!typeIsAcceptable(type)) {
 		ignorableActionCnt++;
-		if (jso.getString("arxiv_id",null)!=null) unexpectedActionCnt++;
+		if (jso.has("arxiv_id"))    unexpectedActionCnt++;
 		continue;		
 	    }
 
 	    String ip_hash = jso.getString("ip_hash");
 	    String aid = canonicAid(jso.getString( "arxiv_id"));
-	    String cookie = jso.getString("cookie_hash", null);
-	    if (cookie==null) cookie = jso.getString("cookie", null);
+	    String cookie = jso.getString("cookie_hash");
+	    if (cookie==null) cookie = jso.getString("cookie");
 	    if (cookie==null) cookie = "";
 
 	    cnt ++;
@@ -200,12 +196,12 @@ public class Json {
 	 </pre>
     */
     static void convertJsonFileBlei(String fname, ArxivUserInferrer inferrer,
-				    File outfile) throws IOException, JsonException {
+				    File outfile) throws IOException, JSONException {
 
 
-	JsonObject jsoOuter = Json.readJsonFile(fname);
-	JsonArray jsa = jsoOuter.getJsonArray("entries");
- 	int len = jsa.size();
+	JSONObject jsoOuter = Json.readJsonFile(fname);
+	JSONArray jsa = jsoOuter.getJSONArray("entries");
+ 	int len = jsa.length();
 
 
 	File d= outfile.getParentFile();
@@ -218,22 +214,19 @@ public class Json {
 	int cnt=0, ignorableActionCnt=0, unexpectedActionCnt=0;
 
  	for(int i=0; i< len; i++) {
-	    JsonObject jso = jsa.getJsonObject(i);
+	    JSONObject jso = jsa.getJSONObject(i);
 	    String type =  jso.getString( "type");
-	    String arxiv_id=jso.getString( "arxiv_id",null);
-	    if (typeIsAcceptable(type)) {
-		if (arxiv_id==null) throw new IllegalArgumentException("No arxiv_id field in entry: " + jso);
-	    } else {
+	    if (!typeIsAcceptable(type)) {
 		ignorableActionCnt++;
-		if (arxiv_id!=null)    unexpectedActionCnt++;
+		if (jso.has("arxiv_id"))    unexpectedActionCnt++;
 		continue;		
 	    } 
 	    cnt ++;
 
 	    String ip_hash = jso.getString("ip_hash");
-	    String aid = canonicAid(arxiv_id);
-	    String cookie = jso.getString("cookie_hash",null);
-	    if (cookie==null) cookie = jso.getString("cookie",null);
+	    String aid = canonicAid(jso.getString( "arxiv_id"));
+	    String cookie = jso.getString("cookie_hash");
+	    if (cookie==null) cookie = jso.getString("cookie");
 	    if (cookie==null) cookie = "";
 	    int utc = jso.getInt("utc");
 
@@ -251,5 +244,82 @@ public class Json {
 	w.close();
     }
 
-  
+    /**  Keeps specific events from usage logs
+	 modelled from convertJsonFileBlei()
+	 - it's basically convertJsonFileBlei but it keeps a subset of events
+	 
+	 @param outfile Output file. A file with user data.  each line contains
+	 <pre>
+			 user_hash article_id date downloaded_y/n
+	 </pre>
+
+	 @author Laurent Charlin
+			 
+			 
+    */
+    static void convertJsonFileBleiExtended(String fname, ArxivUserInferrer inferrer,
+			File outfile) throws IOException, JSONException {
+
+
+	JSONObject jsoOuter = Json.readJsonFile(fname);
+	JSONArray jsa = jsoOuter.getJSONArray("entries");
+	int len = jsa.length();
+
+
+	File d= outfile.getParentFile();
+	System.out.println("Creating directory "+d+", if required");
+	if (d!=null) d.mkdirs();
+
+	PrintWriter w = new PrintWriter(new FileWriter(outfile));
+
+
+	int cnt=0, ignorableActionCnt=0, unexpectedActionCnt=0;
+
+	for(int i=0; i< len; i++) {
+		JSONObject jso = jsa.getJSONObject(i);
+		String type =  jso.getString( "type");
+		if (!typeIsAcceptable(type)) {
+			ignorableActionCnt++;
+
+			if (jso.has("arxiv_id"))    
+				unexpectedActionCnt++;
+
+			continue;		
+		} 
+
+		// additional filtering
+		// must be a click on a paper 
+		if (!jso.has("arxiv_id") || !jso.has("referrer"))
+			continue;
+		// click must be coming from "new" 
+		// (i.e., referrer is new list)
+
+		String referrer = jso.getString("referrer").toLowerCase(); 
+		if (!referrer.matches("http://arxiv.+/list/[a-zA-Z-.]+/new"))
+			continue; 
+		cnt ++;
+
+		String ip_hash = jso.getString("ip_hash");
+		String aid = canonicAid(jso.getString( "arxiv_id"));
+		String cookie = jso.getString("cookie_hash");
+		if (cookie==null) cookie = jso.getString("cookie");
+		if (cookie==null) cookie = "";
+		int utc = jso.getInt("utc");
+
+		String user = inferrer.inferUser(ip_hash,cookie);
+		if (user==null) { 
+			// let's ignore no-cookie entries (which, actually,
+			// don't exist in Paul Ginsparg's arxiv.org logs)
+			continue;
+		}
+		//user_hash article_id date downloaded_y/n
+		boolean down = typeIsDownload(type);
+		w.println(user + " " + aid + " " + utc + " " + (down?1:0) + " " + referrer);
+	}
+	w.flush();
+	w.close();
+	System.out.println("Number of events kept:" + cnt); 
+    }
+
+ 
 }
