@@ -1,0 +1,145 @@
+<!-- This is the main build file for use with Apache Ant. It tells Ant
+     how to compile our application (My.ArXiv) from the source code, 
+     how to deploy it, how to build Javadoc documentation, etc.
+
+    To carry out a particular operation with Ant, you provide the name of the
+    appropriate target. E.g., to compile the code, you type 
+
+      ant compile
+
+     Some of the other targets are:
+
+     jar : "compile" + create a jar file
+     deploy : "jar" + deploy the code to the Tomcat webapps directory
+     reload : "deploy" + cause Tomcat to reload the application
+     javadoc : "compile" + create Javadoc API documentation
+     deploy-javadoc: "javadoc" + deploy docs to the Tomcat webapps directory
+
+     Apache Ant is available for most modern operating systems.
+     You can read more about Apache Ant at http://ant.apache.org/manual/index.html
+
+-->
+
+<project name="retro" default="jar" basedir=".">
+
+<!-- Property Definitions -->
+
+ <property name="src" location="src"/>
+ <property name="build" location="../classes"/>
+ <property name="lib" location="../lib"/>
+ 
+ <!-- A local directory where Java API docs will be put -->
+ <property name="arxiv.doc" location="../doc"/>
+ <property name="arxiv.api" location="${arxiv.doc}/html/api"/>
+
+ <property name="build.tmp" location="/tmp"/>
+
+
+<property name="app.name"       value="retro"/>
+
+<property name="javadoc.home"   value="../javadoc"/>
+<!-- property name="javadoc.home"   value="webroot/javadoc"/ -->
+
+
+<path id="classpath"
+       description="The classpath to use for compiling and running AXS">
+  <!-- from the lib directory, take all third-party JAR files, but not our axs.jar -->
+   <fileset dir="${lib}">
+     <include name="javax.json-1.0.2.jar"/>
+     <exclude name="axs.jar"/>
+   </fileset>
+ </path>
+
+ <echo message="Path = ${toString:classpath}"/>
+
+<!-- An auxiliary target; you aren't likely to use it directly.  It just creates necessary directories -->
+<target name="init">
+    <!-- Create the time stamp -->
+    <tstamp/>
+    <!-- Create the build directory structure used by compile -->
+    <mkdir dir="${lib}"/>
+    <mkdir dir="${build}"/>
+    <mkdir dir="${build}/META-INF"/>
+
+    <mkdir  dir="${javadoc.home}"/>
+</target>
+
+
+<!-- This target tells Ant how to compile AXS. We used to have the argument 
+     target="1.5"
+in the javac command, to make it easier for people elsewhere to use our
+code; but not anymore. -->
+<target name="compile" depends="init"
+        description="Compile the Java source code">
+  <!-- Compile the java code from ${src} into ${build} -->
+  <javac srcdir="${src}" destdir="${build}"
+	 includes="edu/**,org/**"  optimize="on"
+	 debug="on" debuglevel="lines,vars,source"
+	 includeantruntime="false" >
+    <compilerarg value="-Xlint:unchecked"/>
+    <classpath refid="classpath"/>
+  </javac>
+
+</target>
+
+<!-- ====================================================
+Building a JAR file
+-->
+<target name="jar" depends="compile"
+        description="Builds a Jar file">
+
+  <jar destfile="${lib}/retro.jar"   basedir="${build}">
+    <!-- file="manifest-data.dat" mode="replace" -->
+    <!-- manifest> 
+      <attribute name="Main-Class" value="edu.dimacs.mms.borj.Driver"/>
+      <attribute name="Class-Path" value=". xercesImpl.jar xml-apis.jar"/>	
+    </manifest -->
+  </jar>
+</target>
+
+<!-- Build the HTML documentation directory by running Javadoc -->
+
+<target name="javadoc" depends="compile">
+  <echo message="Javadoc: Assuming the My.Arxiv version is ${arxiv.ver}"/>
+
+  <copy todir="${arxiv.doc}">
+    <fileset dir="doc/"/>
+  </copy>
+
+  <!-- copy todir="${arxiv.doc}/html">
+    <fileset dir="sample-data/" includes="sample.xml,sample-suite-out.xml,eg-learner-param-1.xml"/>
+  </copy -->
+
+  <javadoc packagenames="edu.rutgers.axs,edu.rutgers.axs.*"
+	   sourcepath="${src}"
+           destdir="${arxiv.api}"
+	   author="true"
+           version="true"
+           use="true"
+	   link="http://java.sun.com/j2se/1.5.0/docs/api/"
+	   header="&lt;em&gt;My.ArXiv ${arxiv.ver}&lt;/em&gt;"   
+	   windowtitle="My.ArXiv ${arxiv.ver} API" 
+	   overview="doc/html/api/overview.html">
+    <classpath refid="classpath"/>
+  </javadoc>
+
+  <echo message="Documentation has been assembled in ${arxiv.doc}"/>
+
+</target>
+
+
+<!-- Copies Javadoc API files and other similar docs to the web server -->
+<target name="deploy-javadoc" depends="javadoc">     
+  <echo message="Copying files from web/ to ${deploy.home}" />
+  <copy todir="${deploy.home}/doc">
+    <fileset dir="${arxiv.doc}" />
+  </copy>
+</target>
+
+<!-- Deletes the class directory -->
+<target name="clean">
+  <delete dir="${build}"/>
+</target>
+
+</project>
+
