@@ -163,7 +163,14 @@ public class UserStats {
     }
 
     static final String[] botMid = {
-	"webarchive.nlc.gov.cn"
+	"webarchive.nlc.gov.cn",
+	"ZumBot",
+	"YandexBot",
+	"naver.me/bot",
+	"Spider",
+	"spider",
+	"archive.org_bot",
+	"BLEXBot",
     };
     static final String[] botStart = {
 	"Sogou web spider"
@@ -195,9 +202,6 @@ public class UserStats {
 	String usageFrom=getDateStringOption(ht,"usageFrom");
 	String usageTo  =getDateStringOption(ht,"usageTo");
 
-	//	System.out.println("Reading pre-split usage files dated " +
-	//		   usageFrom + " to " + usageTo);
-	
 
 	if (argv.length < 1) {
 	    usage("Command not specified");
@@ -215,6 +219,11 @@ public class UserStats {
 	    if (!f.exists()) usage("File " + f + " does not exist");
 	    //	    System.out.println("");
 
+	    System.out.println("Will look for data files under " + f +
+			       ", date range " + usageFrom + " to " + usageTo);
+	
+
+	    
 	    ListFiles lister = new ListFiles(usageFrom, usageTo, f);
 	    File[] files = lister.list();
 	    System.out.println("Found " +files.length+ " data files to process in " + f);
