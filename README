@@ -4,3 +4,5 @@ or from
 https://mvnrepository.com/artifact/org.glassfish/javax.json/1.1
 However, that library was a lot slower than org.json (source code from Github),
 so I reverted to the latter.
+
+https://stleary.github.io/JSON-java/

@@ -6,8 +6,6 @@ import java.util.zip.*;
 import java.util.regex.*;
 import java.text.*;
 
-//import javax.persistence.*;
-
 import org.json.*;
 //import javax.json.*;
 
@@ -81,7 +79,7 @@ public class UserStats {
 	    // Older logs have some entries w/o user_agent, but these are
 	    // extremely few (16 out of 500,000 in one sample)
 	    String user_agent = jso.has("user_agent") ? 
-		jso.getString("user_agent") : "unknown";
+		jso.getString("user_agent").intern() : "unknown";
 	    if (skipBots && isKnownBot(user_agent)) {
 		botCnt++;
 		continue;
@@ -162,6 +160,9 @@ public class UserStats {
 	return null;
     }
 
+    /** Substrings (of the user_agent header of the HTTP request) used
+	to identify some bots.
+     */
     static final String[] botMid = {
 	"webarchive.nlc.gov.cn",
 	"ZumBot",
@@ -169,8 +170,10 @@ public class UserStats {
 	"naver.me/bot",
 	"Spider",
 	"spider",
+	"webcrawler",
 	"archive.org_bot",
 	"BLEXBot",
+	"BrokenLinkCheck.com",
     };
     static final String[] botStart = {
 	"Sogou web spider"
