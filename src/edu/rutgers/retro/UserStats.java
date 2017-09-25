@@ -171,12 +171,17 @@ public class UserStats {
 	"Spider",
 	"spider",
 	"webcrawler",
+	"crawler",
 	"archive.org_bot",
 	"BLEXBot",
 	"BrokenLinkCheck.com",
+	"http://fess.codelibs.org/bot.html"
     };
     static final String[] botStart = {
-	"Sogou web spider"
+	"Sogou web spider",
+	"AndroidDownloadManager",
+	"ShortLinkTranslate",
+	"WikiDo",
     };
     
 
@@ -200,18 +205,19 @@ public class UserStats {
 	skipBots = ht.getBoolean("skipBots", skipBots);
 
 	final String tcPath = ht.getOption("tc", "/data/json/usage/tc.json.gz");
-	final boolean useCookies=true;
 
 	String usageFrom=getDateStringOption(ht,"usageFrom");
 	String usageTo  =getDateStringOption(ht,"usageTo");
-
+	// are we using stats for anon users too?
+	boolean anon=ht.getOption("anon", true);
+	final boolean useCookies=true;
 
 	if (argv.length < 1) {
 	    usage("Command not specified");
 	} else if (argv[0].equals("users")) {
 	    
 	    ArxivUserInferrer inferrer = useCookies?
-		new CookieArxivUserInferrer(new ArxivUserTable(tcPath)):
+		new CookieArxivUserInferrer(new ArxivUserTable(tcPath), anon):
 		new IPArxivUserInferrer();
 	    UserStats us = new UserStats(inferrer);
 

@@ -16,11 +16,18 @@ import org.json.*;
 class CookieArxivUserInferrer extends ArxivUserInferrer {
 
     private final ArxivUserTable table;
+    private final boolean acceptAnon;
 
     /** @param t The table that links cookies to ArXiv's registered users.
+	@param acceptAnon If true, "cookie-based anonymous users" are created for entries that can't be associated with registered users. Otherwise, such entries are ignored.
      */    
-    CookieArxivUserInferrer(ArxivUserTable t) {
+    CookieArxivUserInferrer(ArxivUserTable t, boolean _acceptAnon) {
+	acceptAnon = _acceptAnon;
 	table = t;
+    }
+
+    CookieArxivUserInferrer(ArxivUserTable t) {
+	this(t,true);
     }
 
     /** Looks at the ip and cookie information, and decides who was
@@ -45,11 +52,14 @@ class CookieArxivUserInferrer extends ArxivUserInferrer {
 	if (u!=null) {
 	    fromUserCookieCnt++;
 	    return u;
-	} else {
+	} else if (acceptAnon) { // accept anon user
 	    fromAnonCookieCnt++;
 	    // avoiding potential ambiguity between cookie_hash
 	    // and user_hash values
 	    return "C-" + cookie_hash;
+	} else { // ignore anon user
+	    ignoredCnt ++;
+	    return null;
 	}
     }
 }
