@@ -95,7 +95,7 @@ public class UserStats {
 
 	System.out.println("Json data file action entry count = " + len);
 
-	int cnt=0, ignorableActionCnt=0, invalidAidCnt = 0, unexpectedActionCnt=0, botCnt=0;
+	int cnt=0, ignorableActionCnt=0, invalidAidCnt = 0, unexpectedActionCnt=0, botCnt=0, ignorableUserCnt=0;
 	for(int i=0; i< len; i++) {
 	    JSONObject jso = jsa.getJSONObject(i);
 	    ActionLine z = new ActionLine(jso);
@@ -114,6 +114,10 @@ public class UserStats {
 	    cnt ++;
 
 	    String uid= inferrer.inferUser(z.ip_hash,  z.cookie);
+	    if (uid==null) {
+		ignorableUserCnt++;
+		continue;
+	    }
 	    UserInfo u = allUsers.get(uid);
 	    if (u==null) allUsers.put(uid, u=new UserInfo(uid, z.utc, z.user_agent));
 	    else u.add(z.utc, z.user_agent);
@@ -123,11 +127,13 @@ public class UserStats {
 	
 	System.out.println("Analyzable action entries count = " + cnt);
 	System.out.println("Ignorable  action entries count = " + ignorableActionCnt);
-	if (botCnt>0) 	System.out.println("Skipped known bot entries count = " + botCnt);
-
 	if (unexpectedActionCnt>0) {
 	    System.out.println("There were also " + unexpectedActionCnt + " entries with an arxiv_id field, but with an unacceptable action type");
 	}
+
+	if (botCnt>0) 	System.out.println("Skipped known bot entries count = " + botCnt);
+	if (ignorableUserCnt>0) System.out.println("Ignored user count = " +ignorableUserCnt);
+
 
 	System.out.println("" + allUsers.size() +  " users identified");
     }
@@ -271,9 +277,5 @@ public class UserStats {
 	    usage();
 	}
     }
-
-
-
-
 
 }
