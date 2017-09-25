@@ -45,6 +45,46 @@ public class UserStats {
     HashMap<String, UserInfo> allUsers = new HashMap<String, UserInfo>();
 
     int unexpectedActionCnt = 0;		
+
+    /** Data from one entry of the JSON file, corresponding to 1 log entry
+     */
+    static class ActionLine {
+	String type;
+	String ip_hash;
+	String arxiv_id;
+	String aid;
+	String cookie;
+	String user_agent;
+	int utc;
+	boolean ignorableAction = false;
+	boolean unexpectedAction = false;
+
+	ActionLine(JSONObject jso) {
+ 	    type =  jso.getString( "type");
+
+	    //	    String arxiv_id=jso.getString( "arxiv_id",null);
+	    if (Json.typeIsAcceptable(type)) {
+		if (!jso.has("arxiv_id"))  throw new IllegalArgumentException("No arxiv_id field in entry: " + jso);
+	    } else {
+		ignorableAction = true;
+		if (jso.has("arxiv_id"))    unexpectedAction = true;
+		return;		
+	    } 
+	    
+	    ip_hash = jso.getString("ip_hash");
+	    arxiv_id=jso.getString( "arxiv_id");
+ 	    aid = Json.canonicAid(arxiv_id);
+	    cookie = jso.getString("cookie_hash");
+	    if (cookie==null) cookie = jso.getString("cookie");
+	    if (cookie==null) cookie = "";
+	    // Older logs have some entries w/o user_agent, but these are
+	    // extremely few (16 out of 500,000 in one sample)
+	    user_agent = jso.has("user_agent") ? 
+		jso.getString("user_agent").intern() : "unknown";
+	    utc = jso.getInt("utc");
+
+	}
+   }
   	
     void addFromJsonFile(File f) throws IOException, JSONException {
 
@@ -58,41 +98,25 @@ public class UserStats {
 	int cnt=0, ignorableActionCnt=0, invalidAidCnt = 0, unexpectedActionCnt=0, botCnt=0;
 	for(int i=0; i< len; i++) {
 	    JSONObject jso = jsa.getJSONObject(i);
-	    String type =  jso.getString( "type");
+	    ActionLine z = new ActionLine(jso);
 
-	    //	    String arxiv_id=jso.getString( "arxiv_id",null);
-	    if (Json.typeIsAcceptable(type)) {
-		if (!jso.has("arxiv_id"))  throw new IllegalArgumentException("No arxiv_id field in entry: " + jso);
-	    } else {
+	    if (z.ignorableAction) {
 		ignorableActionCnt++;
-		if (jso.has("arxiv_id"))    unexpectedActionCnt++;
+		if (z.unexpectedAction) unexpectedActionCnt++;
 		continue;		
 	    } 
 
-
-	    String ip_hash = jso.getString("ip_hash");
-	    String arxiv_id=jso.getString( "arxiv_id");
- 	    String aid = Json.canonicAid(arxiv_id);
-	    String cookie = jso.getString("cookie_hash");
-	    if (cookie==null) cookie = jso.getString("cookie");
-	    if (cookie==null) cookie = "";
-	    // Older logs have some entries w/o user_agent, but these are
-	    // extremely few (16 out of 500,000 in one sample)
-	    String user_agent = jso.has("user_agent") ? 
-		jso.getString("user_agent").intern() : "unknown";
-	    if (skipBots && isKnownBot(user_agent)) {
+	    if (skipBots && isKnownBot(z.user_agent)) {
 		botCnt++;
 		continue;
 	    }
 
-	    int utc = jso.getInt("utc");
-
 	    cnt ++;
 
-	     String uid= inferrer.inferUser(ip_hash,  cookie);
-	     UserInfo u = allUsers.get(uid);
-	     if (u==null) allUsers.put(uid, u=new UserInfo(uid, utc, user_agent));
-	     else u.add(utc, user_agent);
+	    String uid= inferrer.inferUser(z.ip_hash,  z.cookie);
+	    UserInfo u = allUsers.get(uid);
+	    if (u==null) allUsers.put(uid, u=new UserInfo(uid, z.utc, z.user_agent));
+	    else u.add(z.utc, z.user_agent);
 	     
 	     //	    saver.save( ip_hash, cookie, aid);
 	}
@@ -106,7 +130,6 @@ public class UserStats {
 	}
 
 	System.out.println("" + allUsers.size() +  " users identified");
-
     }
 
 
