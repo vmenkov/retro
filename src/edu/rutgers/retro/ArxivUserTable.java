@@ -33,7 +33,7 @@ class ArxivUserTable  {
 	    user2cookies.put(u,v);
 	    keyCnt++;
 	    cnt += n;
-	    if (keyCnt%1000==0) System.out.println("key cnt=" + keyCnt +", val cnt=" + cnt +", u=" + u);
+	    //if (keyCnt%1000==0) System.out.println("key cnt=" + keyCnt +", val cnt=" + cnt +", u=" + u);
 	}
 	System.out.println("User activity file "+fname+" contains "+cnt+" cookies for " + names.length + " users");
     }
