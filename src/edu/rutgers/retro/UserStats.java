@@ -18,23 +18,65 @@ public class UserStats {
 	inferrer = _inferrer;
     }
 
+    /** This is used to track how many articles the user has viewed within
+	a recent time window
+     */
+    static class HistoryWindow extends LinkedList<Integer> {
+	final int windowSize, maxCnt;
+	HistoryWindow(int _windowSize, int _maxCnt) {
+	    windowSize =  _windowSize;
+	    maxCnt =  _maxCnt;	    
+	}
+	/** Adds the most recent events into the list, and removes
+	    "expired" old ones, if any */
+	boolean accept(int utc) {
+	    Integer first = null;
+	    while((first = peekFirst())!=null && 
+		  first.intValue()<=utc-windowSize) {
+		removeFirst();
+	    }
+	    if (size()>=maxCnt) return false;
+	    add(utc);
+	    return true;	    
+	}
+    }
+
     static class UserInfo implements Comparable<UserInfo> {
 	final String uid;
 	String userAgent;
 	int utc0,utc1;
 	int cnt;
 	boolean userAgentsVary=false;
+	/** We set that flag to true if we decide that this user is too
+	    robot-like, and his activity should not be taken into account 
+	    anymore */
+	boolean excludeFromNowOn=false;
+	final static int[] windowSizes = {300, 24*3600};
+	final static int[] maxCntWindow = {20, 100};
+	//boolean[] exceededWindow = new boolean[windowSizes.length];
+	HistoryWindow historyWindow[] = new HistoryWindow[windowSizes.length];
+
 	UserInfo(String _uid, int utc, String _userAgent) {
 	    uid = _uid;
 	    utc0 = utc1 = utc;
 	    cnt = 1;
-	    userAgent = _userAgent;
+	    userAgent =	_userAgent;
+	    for(int i=0; i<windowSizes.length; i++) {
+		historyWindow[i] = new HistoryWindow(windowSizes[i], maxCntWindow[i]);
+	    }
 	}
 	void add(int utc, String _userAgent) {
 	    cnt ++;
 	    if (utc<utc0) utc0=utc;
 	    if (utc>utc1) utc1=utc;
 	    if (_userAgent!=null && !_userAgent.equals(userAgent)) userAgentsVary=true;
+	    if (excludeFromNowOn) return;
+	    for(HistoryWindow hw: historyWindow) {
+		if (!hw.accept(utc)) {
+		    excludeFromNowOn = true;
+		    historyWindow = null; // so that it can be GC-ed
+		}
+	    }
 	}
 	/** This is used for the reverse sorting of UserInfo objects by count (i.e. descening sort) */
 	public int compareTo(UserInfo x) {
@@ -43,6 +85,8 @@ public class UserStats {
     }
 
     HashMap<String, UserInfo> allUsers = new HashMap<String, UserInfo>();
+    NameTable userNameTable = new NameTable();
+    HashSet<String> allAidsSet = new HashSet<String>();
 
     int unexpectedActionCnt = 0;		
 
@@ -121,8 +165,12 @@ public class UserStats {
 	    UserInfo u = allUsers.get(uid);
 	    if (u==null) allUsers.put(uid, u=new UserInfo(uid, z.utc, z.user_agent));
 	    else u.add(z.utc, z.user_agent);
+
+
+	    allAidsSet.add(z.aid);
+	    userNameTable.addIfNew(uid);
+
 	     
-	     //	    saver.save( ip_hash, cookie, aid);
 	}
 	
 	System.out.println("Analyzable action entries count = " + cnt);
@@ -147,7 +195,9 @@ public class UserStats {
 	for(int i=0; i<users.length; i++) {
 	    UserInfo u = users[i];
 	    w.println("" + u.cnt + ",\"" + u.uid+ "\",\""+ u.userAgent+"\"," + 
-		      (u.userAgentsVary? 1:0) +"," + u.utc0 +","+u.utc1);
+		      (u.userAgentsVary? 1:0) +"," + u.utc0 +","+u.utc1 +","+
+		      u.excludeFromNowOn 
+		      );
 	}
 	w.close();
     }
@@ -241,6 +291,7 @@ public class UserStats {
 	boolean anon=ht.getOption("anon", true);
 	final boolean useCookies=true;
 
+
 	if (argv.length < 1) {
 	    usage("Command not specified");
 	} else if (argv[0].equals("users")) {
@@ -271,7 +322,15 @@ public class UserStats {
 		us.addFromJsonFile(g);
 	    }
 
+	    // Save list of users
 	    us.save(new File("users.csv"));
+	    us.userNameTable.save(new File("users.dat"));
+
+	    // Save sorted list of article IDs
+	    String[] allAids = (String[])us.allAidsSet.toArray(new String[0]);
+	    Arrays.sort(allAids);
+	    NameTable aidNameTable = new NameTable(allAids);
+	    aidNameTable.save(new File("aid.dat"));
 
 	}  else {
 	    usage();

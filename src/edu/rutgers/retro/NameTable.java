@@ -20,6 +20,15 @@ class NameTable extends HashMap<String, Integer> {
 	    names.add(x);
 	    put(x, names.size()-1);
 	}
+    synchronized
+	void addAll(String[] v) {
+	    for(String x: v) addIfNew(x);
+	}
+    NameTable(String[] v) {
+	addAll(v);
+    }
+
+
     void save(File f) throws IOException {
 	PrintWriter w = new PrintWriter(new FileWriter(f));
 	for(String x: names) {
@@ -27,6 +36,7 @@ class NameTable extends HashMap<String, Integer> {
 	}
 	w.close();
     }
+    NameTable() {}
     NameTable(File f) throws IOException { 
 	LineNumberReader r =  new LineNumberReader(new FileReader(f));
 	String s;
