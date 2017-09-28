@@ -19,24 +19,34 @@ public class UserStats {
     }
 
     /** This is used to track how many articles the user has viewed within
-	a recent time window
+	a recent time window. 
      */
     static class HistoryWindow extends LinkedList<Integer> {
 	final int windowSize, maxCnt;
+	/** How many entries have been accepted before the user has
+	    been rejected */
+	int acceptCnt=0;
+	boolean rejected=false;
 	HistoryWindow(int _windowSize, int _maxCnt) {
 	    windowSize =  _windowSize;
 	    maxCnt =  _maxCnt;	    
 	}
 	/** Adds the most recent events into the list, and removes
 	    "expired" old ones, if any */
-	boolean accept(int utc) {
+	synchronized boolean accept(int utc) {
+	    if (rejected) return false;
 	    Integer first = null;
 	    while((first = peekFirst())!=null && 
 		  first.intValue()<=utc-windowSize) {
 		removeFirst();
 	    }
-	    if (size()>=maxCnt) return false;
+	    if (size()>=maxCnt) {
+		rejected = true;
+		clear(); // to allow the list to be GC-ed
+		return false;
+	    }
 	    add(utc);
+	    acceptCnt++;
 	    return true;	    
 	}
     }
@@ -53,7 +63,6 @@ public class UserStats {
 	boolean excludeFromNowOn=false;
 	final static int[] windowSizes = {300, 24*3600};
 	final static int[] maxCntWindow = {20, 100};
-	//boolean[] exceededWindow = new boolean[windowSizes.length];
 	HistoryWindow historyWindow[] = new HistoryWindow[windowSizes.length];
 
 	UserInfo(String _uid, int utc, String _userAgent) {
@@ -64,17 +73,20 @@ public class UserStats {
 	    for(int i=0; i<windowSizes.length; i++) {
 		historyWindow[i] = new HistoryWindow(windowSizes[i], maxCntWindow[i]);
 	    }
+	    windowCntTest(utc);
 	}
 	void add(int utc, String _userAgent) {
 	    cnt ++;
 	    if (utc<utc0) utc0=utc;
 	    if (utc>utc1) utc1=utc;
 	    if (_userAgent!=null && !_userAgent.equals(userAgent)) userAgentsVary=true;
-	    if (excludeFromNowOn) return;
+	    windowCntTest(utc);
+	}
+	private void windowCntTest(int utc) {
+	    //	    if (excludeFromNowOn) return;
 	    for(HistoryWindow hw: historyWindow) {
-		if (!hw.accept(utc)) {
+		if (!hw.rejected && !hw.accept(utc)) {
 		    excludeFromNowOn = true;
-		    historyWindow = null; // so that it can be GC-ed
 		}
 	    }
 	}
@@ -180,10 +192,16 @@ public class UserStats {
 	}
 
 	if (botCnt>0) 	System.out.println("Skipped known bot entries count = " + botCnt);
-	if (ignorableUserCnt>0) System.out.println("Ignored user count = " +ignorableUserCnt);
+	if (ignorableUserCnt>0) System.out.println("Ignored user entries count = " +ignorableUserCnt);
 
+
+	int rejectedUserCnt=0;
+	for(UserInfo ui: allUsers.values()) {
+	    if (ui.excludeFromNowOn) rejectedUserCnt++;
+	}
 
 	System.out.println("" + allUsers.size() +  " users identified");
+	System.out.println("Of them, " +rejectedUserCnt  +  " users found to be too active");
     }
 
 
@@ -194,10 +212,13 @@ public class UserStats {
 	Arrays.sort(users);
 	for(int i=0; i<users.length; i++) {
 	    UserInfo u = users[i];
-	    w.println("" + u.cnt + ",\"" + u.uid+ "\",\""+ u.userAgent+"\"," + 
+	    w.print("" + u.cnt + ",\"" + u.uid+ "\",\""+ u.userAgent+"\"," + 
 		      (u.userAgentsVary? 1:0) +"," + u.utc0 +","+u.utc1 +","+
-		      u.excludeFromNowOn 
-		      );
+		    u.excludeFromNowOn);
+	    for(HistoryWindow hw: u.historyWindow) {
+		w.print("," + hw.rejected +"," + hw.acceptCnt);
+	    }
+	    w.println();
 	}
 	w.close();
     }
