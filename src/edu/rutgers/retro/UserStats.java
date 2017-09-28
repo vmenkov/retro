@@ -62,7 +62,7 @@ public class UserStats {
 	    anymore */
 	boolean excludeFromNowOn=false;
 	final static int[] windowSizes = {300, 24*3600};
-	final static int[] maxCntWindow = {20, 100};
+	final static int[] maxCntWindow = {20, 60};
 	HistoryWindow historyWindow[] = new HistoryWindow[windowSizes.length];
 
 	UserInfo(String _uid, int utc, String _userAgent) {
@@ -200,8 +200,7 @@ public class UserStats {
 	    if (ui.excludeFromNowOn) rejectedUserCnt++;
 	}
 
-	System.out.println("" + allUsers.size() +  " users identified");
-	System.out.println("Of them, " +rejectedUserCnt  +  " users found to be too active");
+	System.out.println("" + allUsers.size() +  " users identified; of them, " +rejectedUserCnt  +  " found to be too active");
     }
 
 
@@ -328,6 +327,13 @@ public class UserStats {
 	    File f = new File(fname);
 	    if (!f.exists()) usage("File " + f + " does not exist");
 	    //	    System.out.println("");
+
+
+	    System.out.println("Too active user exclusion criteria are as follows:");
+	    for(int i=0; i<UserInfo.windowSizes.length; i++) {
+		System.out.println("More than " + UserInfo.maxCntWindow[i] + " articles in " + UserInfo.windowSizes[i]  + " sec");
+	    }
+
 
 	    System.out.println("Will look for data files under " + f +
 			       ", date range " + usageFrom + " to " + usageTo);
