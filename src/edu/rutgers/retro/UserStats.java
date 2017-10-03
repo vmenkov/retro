@@ -55,7 +55,7 @@ public class UserStats {
 	final String uid;
 	String userAgent;
 	int utc0,utc1;
-	int cnt;
+	int cnt, acceptCnt;
 	boolean userAgentsVary=false;
 	/** We set that flag to true if we decide that this user is too
 	    robot-like, and his activity should not be taken into account 
@@ -86,7 +86,10 @@ public class UserStats {
 	    //	    if (excludeFromNowOn) return;
 	    for(HistoryWindow hw: historyWindow) {
 		if (!hw.rejected && !hw.accept(utc)) {
-		    excludeFromNowOn = true;
+		    if (!excludeFromNowOn) {
+			acceptCnt = hw.acceptCnt;
+			excludeFromNowOn = true;
+		    }
 		}
 	    }
 	}
@@ -181,11 +184,12 @@ public class UserStats {
     }
 
 
-    void saveActions() {
- 	UserInfo users[] = allUsers.values().toArray(new UserInfo[0]);
-	UserActionSaver uas = new UserActionSaver(users, userNameTable);
-	users=null;  // have them GC-ed
-	allUsers.clear();
+    void saveActions(NameTable aidNameTable, File[] jsonFiles)  throws IOException {
+	UserActionSaver uas = new UserActionSaver(inferrer, userNameTable,aidNameTable, allUsers.values().toArray(new UserInfo[0]));
+	allUsers.clear(); // GC
+	File outdir = new File("out");
+	outdir.mkdirs();
+	uas.saveActions(jsonFiles, outdir);
    }
 
     static void usage() {
@@ -280,7 +284,8 @@ public class UserStats {
 
 	if (argv.length < 1) {
 	    usage("Command not specified");
-	} else if (argv[0].equals("users")) {
+	} else if (argv[0].equals("users") ||
+		   argv[0].equals("userActions")) {
 	    
 	    ArxivUserInferrer inferrer = useCookies?
 		new CookieArxivUserInferrer(new ArxivUserTable(tcPath), anon):
@@ -324,6 +329,12 @@ public class UserStats {
 	    Arrays.sort(allAids);
 	    NameTable aidNameTable = new NameTable(allAids);
 	    aidNameTable.save(new File("aid.dat"));
+
+	    if (argv[0].equals("userActions")) {
+		System.out.println("Now, saving user actions...");
+		us.saveActions(aidNameTable, files);
+	    }
+ 
 
 	}  else {
 	    usage();
