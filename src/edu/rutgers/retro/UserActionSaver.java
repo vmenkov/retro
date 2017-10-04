@@ -19,14 +19,16 @@ class UserActionSaver {
 	/** how many actions will be saved, in total, for this user. This value
 	    may be slightly adjusted, if and when duplicates are discovered. */
 	int total;
+	final boolean willReject;
 	/** The beginning of this user's data in the file. The units are action
 	    records, rather than bytes */
 	int offset0;
 	/** How many actions for this user have been already read from the JSON file... and saved to the binary file. The two numbers are the same (readCnt eventually becoming equal to this.total), unless there are duplicates */
 	int readCnt=0, savedCnt=0;
-	UserEntry(int _total, int _offset) {
+	UserEntry(int _total, int _offset, boolean _willReject) {
 	    total = _total;
 	    offset0 = _offset;
+	    willReject = _willReject;
 	}
 	/** Records one more action for this user, unless it's a duplicate.
 	    @return true if the action was recorded; false otherwise (i.e. when the action involved a page already seen by this user)
@@ -39,9 +41,6 @@ class UserActionSaver {
 		dupCnt ++;
 		return false;
 	    }  else myPages.add(act.aid);
-	    if (readCnt > total) {
-		throw new IllegalArgumentException("For one of the users (offset0="+offset0+"), the readCnt has exceeded the predicted value=" + total);
-	    }
 
 	    // Record action details in the all-actions list
 	    long len = actionRAF.length();
@@ -85,7 +84,8 @@ class UserActionSaver {
 
     }
 
-    class ActionDetails implements Storable{
+    /** Mapped to data file */
+    class ActionDetails implements Storable {
 	int uid, aid, utc;
 	ActionDetails() {}
 	ActionDetails(int _uid, int _aid, int _utc) {
@@ -114,17 +114,29 @@ class UserActionSaver {
     UserEntry [] users;
     ArxivUserInferrer inferrer;
 
-
+    /** @param ui User list aligned with userNameTable order
+     */
     UserActionSaver(ArxivUserInferrer _inferrer, NameTable _userNameTable, 
-		    NameTable _aidNameTable, UserStats.UserInfo[] ui) {
+		    NameTable _aidNameTable,
+		    HashMap<String, UserStats.UserInfo> allUsers) {
+	// UserStats.UserInfo[] ui) {
 	inferrer = _inferrer;
 	userNameTable =	_userNameTable;
 	aidNameTable = _aidNameTable;
-	users = new UserEntry[ui.length];
+	if (userNameTable.size() !=  allUsers.size()) throw new IllegalArgumentException("Table size mismatch");
+	users = new UserEntry[ allUsers.size()];
 	int offset = 0;
-	for(int i=0; i<ui.length; i++) {
-	    users[i] = new UserEntry(ui[i].acceptCnt, offset);
+	for(int i=0; i<users.length; i++) {
+	    String uname = userNameTable.nameAt(i);
+	    UserStats.UserInfo us = allUsers.get(uname);
+	    if (!us.uid.equals(uname)) throw new IllegalArgumentException("User name mismatch");
+	    users[i] = new UserEntry(us.acceptCnt, offset, us.excludeFromNowOn);
 	    offset += users[i].total;
+
+	    if (i<40) {
+		System.out.println("User["+i+"]=" +us.uid +": " +  users[i].offset0 + " + "+users[i].total+"/"+us.cnt+" = " + offset);
+	    }
+
 	}	
 	System.out.println("Predicted length of the (uncompacted) history file = " + offset);
     }
@@ -153,11 +165,18 @@ class UserActionSaver {
 	    UserEntry u = users[uid];
 	    int aid = aidNameTable.get(z.aid); // internal article aid
 	    ActionDetails act = new ActionDetails(uid, aid, z.utc);
+
+	    if (u.readCnt == u.total) {
+		if (u.willReject) continue; // as expected
+		
+		throw new IllegalArgumentException("For user["+uid+"]="+uname+"  (offset0="+u.offset0+"), the readCnt has exceeded the predicted value=" + u.total +", even though the user was never rejected");
+	    }
 	    actionCnt++;
+
 	    boolean rv = u.processAction(act);
 	    if (rv) recordedActionCnt++;
 	}
-	System.out.println("Found " + actionCnt + " actions for our users in this file, recorded " + recordedActionCnt + ". Detected " + dupCnt + " duplicates");
+	System.out.println("Found " + actionCnt + " acceptable actions in this file, recorded " + recordedActionCnt + ". Detected " + dupCnt + " duplicates");
 	
     }
 

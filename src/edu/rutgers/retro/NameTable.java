@@ -9,6 +9,8 @@ import java.text.*;
 
 class NameTable extends HashMap<String, Integer> {
     private Vector<String> names = new Vector<String>();
+    String nameAt(int i) { return names.elementAt(i); }
+
     synchronized
 	void addIfNew(String x) {
 	    if (!containsKey(x)) add(x);

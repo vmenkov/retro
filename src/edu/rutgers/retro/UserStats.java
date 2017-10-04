@@ -140,14 +140,11 @@ public class UserStats {
 		continue;
 	    }
 	    UserInfo u = allUsers.get(uid);
-	    if (u==null) allUsers.put(uid, u=new UserInfo(uid, z.utc, z.user_agent));
+	    if (u==null) allUsers.put(uid, u=new UserInfo(uid,z.utc,z.user_agent));
 	    else u.add(z.utc, z.user_agent);
-
 
 	    allAidsSet.add(z.aid);
 	    userNameTable.addIfNew(uid);
-
-	     
 	}
 	
 	System.out.println("Analyzable action entries count = " + cnt);
@@ -189,8 +186,16 @@ public class UserStats {
 
 
     void saveActions(NameTable aidNameTable, File[] jsonFiles)  throws IOException {
-	UserActionSaver uas = new UserActionSaver(inferrer, userNameTable,aidNameTable, allUsers.values().toArray(new UserInfo[0]));
-	allUsers.clear(); // GC
+	// create user list aligned with userNameTable order
+	//UserInfo users[] = new UserInfo[userNameTable.size()];
+	//for(int i=0; i<users.length; i++) {
+	//	    users[i] = allUsers.get( userNameTable.nameAt(i));
+	//}
+
+	UserActionSaver uas = new UserActionSaver(inferrer, userNameTable, aidNameTable, allUsers);
+	//allUsers.values().toArray(new UserInfo[0]));
+
+	allUsers.clear(); // enable GC
 	File outdir = new File("out");
 	outdir.mkdirs();
 	uas.saveActions(jsonFiles, outdir);

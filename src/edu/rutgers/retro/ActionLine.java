@@ -25,31 +25,31 @@ class ActionLine {
     boolean unexpectedAction = false;
     boolean isBot = false;
 
-	ActionLine(JSONObject jso) {
- 	    type =  jso.getString( "type");
-
-	    //	    String arxiv_id=jso.getString( "arxiv_id",null);
-	    if (Json.typeIsAcceptable(type)) {
-		if (!jso.has("arxiv_id"))  throw new IllegalArgumentException("No arxiv_id field in entry: " + jso);
-	    } else {
-		ignorableAction = true;
-		if (jso.has("arxiv_id"))    unexpectedAction = true;
-		return;		
-	    } 
+    ActionLine(JSONObject jso) {
+	type =  jso.getString( "type");
+	
+	//	    String arxiv_id=jso.getString( "arxiv_id",null);
+	if (Json.typeIsAcceptable(type)) {
+	    if (!jso.has("arxiv_id"))  throw new IllegalArgumentException("No arxiv_id field in entry: " + jso);
+	} else {
+	    ignorableAction = true;
+	    if (jso.has("arxiv_id"))    unexpectedAction = true;
+	    return;		
+	} 
 	    
-	    ip_hash = jso.getString("ip_hash");
-	    arxiv_id=jso.getString( "arxiv_id");
- 	    aid = Json.canonicAid(arxiv_id);
-	    cookie = jso.getString("cookie_hash");
-	    if (cookie==null) cookie = jso.getString("cookie");
-	    if (cookie==null) cookie = "";
-	    // Older logs have some entries w/o user_agent, but these are
-	    // extremely few (16 out of 500,000 in one sample)
-	    user_agent = jso.has("user_agent") ? 
-		jso.getString("user_agent").intern() : "unknown";
-	    utc = jso.getInt("utc");
-	    isBot = (skipBots && isKnownBot(user_agent));
-	}
+	ip_hash = jso.getString("ip_hash");
+	arxiv_id=jso.getString( "arxiv_id");
+	aid = Json.canonicAid(arxiv_id);
+	cookie = jso.getString("cookie_hash");
+	if (cookie==null) cookie = jso.getString("cookie");
+	if (cookie==null) cookie = "";
+	// Older logs have some entries w/o user_agent, but these are
+	// extremely few (16 out of 500,000 in one sample)
+	user_agent = jso.has("user_agent") ? 
+	    jso.getString("user_agent").intern() : "unknown";
+	utc = jso.getInt("utc");
+	isBot = (skipBots && isKnownBot(user_agent));
+    }
 
 
     /** Substrings (of the user_agent header of the HTTP request) used
