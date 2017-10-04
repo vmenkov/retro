@@ -7,7 +7,6 @@ import java.util.regex.*;
 import java.text.*;
 
 import org.json.*;
-//import javax.json.*;
 
 
 /** Collecting statistics about users from arxiv.org usage logs */
@@ -18,13 +17,18 @@ public class UserStats {
 	inferrer = _inferrer;
     }
 
-    /** This is used to track how many articles the user has viewed within
-	a recent time window. 
+    /** This is used to track how many articles the user has viewed
+	within a recent time window. Each HistoryWindow object is used
+	to monitor the user's activity against one activity criterion
+	(max number of articles views allowed over a certain period of time).
      */
     static class HistoryWindow extends LinkedList<Integer> {
+	/** The criterion is: no more than maxCnt viewes within windowSize sec */
 	final int windowSize, maxCnt;
 	/** How many entries have been accepted before the user has
-	    been rejected */
+	    been rejected by this window's criterion. (This counter is
+	    incremented until the criterion's activity threshold is
+	    exceeded) */
 	int acceptCnt=0;
 	boolean rejected=false;
 	HistoryWindow(int _windowSize, int _maxCnt) {
@@ -55,7 +59,7 @@ public class UserStats {
 	final String uid;
 	String userAgent;
 	int utc0,utc1;
-	int cnt, acceptCnt;
+	int cnt=0, acceptCnt=0;
 	boolean userAgentsVary=false;
 	/** We set that flag to true if we decide that this user is too
 	    robot-like, and his activity should not be taken into account 
@@ -68,7 +72,6 @@ public class UserStats {
 	UserInfo(String _uid, int utc, String _userAgent) {
 	    uid = _uid;
 	    utc0 = utc1 = utc;
-	    cnt = 1;
 	    userAgent =	_userAgent;
 	    for(int i=0; i<windowSizes.length; i++) {
 		historyWindow[i] = new HistoryWindow(windowSizes[i], maxCntWindow[i]);
@@ -76,22 +79,23 @@ public class UserStats {
 	    windowCntTest(utc);
 	}
 	void add(int utc, String _userAgent) {
-	    cnt ++;
 	    if (utc<utc0) utc0=utc;
 	    if (utc>utc1) utc1=utc;
 	    if (_userAgent!=null && !_userAgent.equals(userAgent)) userAgentsVary=true;
 	    windowCntTest(utc);
 	}
+	/** Increments counters, and checks if the user seems to be
+	    too active (based on any of several criteria), and if he
+	    is, sets the excludeFromNowOn flag. A note is made on
+	    which criteria (and when) triggers the exclusion. */
 	private void windowCntTest(int utc) {
-	    //	    if (excludeFromNowOn) return;
+	    cnt ++;
 	    for(HistoryWindow hw: historyWindow) {
-		if (!hw.rejected && !hw.accept(utc)) {
-		    if (!excludeFromNowOn) {
-			acceptCnt = hw.acceptCnt;
-			excludeFromNowOn = true;
-		    }
+		if (!hw.rejected && !hw.accept(utc) && !excludeFromNowOn) {
+		    excludeFromNowOn = true;
 		}
 	    }
+	    if (!excludeFromNowOn) acceptCnt=cnt;
 	}
 	/** This is used for the reverse sorting of UserInfo objects by count (i.e. descening sort) */
 	public int compareTo(UserInfo x) {
@@ -122,8 +126,8 @@ public class UserStats {
 		if (z.unexpectedAction) unexpectedActionCnt++;
 		continue;		
 	    } 
-
-	    if (skipBots && isKnownBot(z.user_agent)) {
+	    
+	    if (z.isBot) {
 		botCnt++;
 		continue;
 	    }
@@ -229,49 +233,12 @@ public class UserStats {
 	return null;
     }
 
-    /** Substrings (of the user_agent header of the HTTP request) used
-	to identify some bots.
-     */
-    static final String[] botMid = {
-	"webarchive.nlc.gov.cn",
-	"ZumBot",
-	"YandexBot",
-	"naver.me/bot",
-	"Spider",
-	"spider",
-	"webcrawler",
-	"crawler",
-	"archive.org_bot",
-	"BLEXBot",
-	"BrokenLinkCheck.com",
-	"http://fess.codelibs.org/bot.html"
-    };
-    static final String[] botStart = {
-	"Sogou web spider",
-	"AndroidDownloadManager",
-	"ShortLinkTranslate",
-	"WikiDo",
-    };
-    
-
-    /** Checks if the userAgent identifies a known bot */
-    static boolean isKnownBot(String userAgent) {
-	for(String x: botStart) {
-	    if (userAgent.startsWith(x)) return true;
-	}
-  	for(String x: botMid) {
-	    if (userAgent.indexOf(x)>=0) return true;
-	}
-	return false;
-    }
-
     private static ParseConfig ht = null;
-    private static boolean skipBots=true;
-
+ 
     public static void main(String [] argv) throws IOException, java.text.ParseException, JSONException {
 
 	ht = new ParseConfig();
-	skipBots = ht.getBoolean("skipBots", skipBots);
+	ActionLine.skipBots = ht.getBoolean("skipBots", ActionLine.skipBots);
 
 	final String tcPath = ht.getOption("tc", "/data/json/usage/tc.json.gz");
 

@@ -12,25 +12,37 @@ import org.json.*;
     to a random-access file */
 class UserActionSaver {	
 
+    int dupCnt;
+    /** An UserEntry object deals with one user's actions */
     class UserEntry {
+
 	/** how many actions will be saved, in total, for this user. This value
 	    may be slightly adjusted, if and when duplicates are discovered. */
 	int total;
 	/** The beginning of this user's data in the file. The units are action
 	    records, rather than bytes */
 	int offset0;
-	/** How many actions for this user have been already read from the JSON file... and saved to the binary file. The two numbers are the same, unless there are duplicates */
+	/** How many actions for this user have been already read from the JSON file... and saved to the binary file. The two numbers are the same (readCnt eventually becoming equal to this.total), unless there are duplicates */
 	int readCnt=0, savedCnt=0;
 	UserEntry(int _total, int _offset) {
 	    total = _total;
 	    offset0 = _offset;
 	}
-	/** Records one more action for this user, unless it's a duplicate */
+	/** Records one more action for this user, unless it's a duplicate.
+	    @return true if the action was recorded; false otherwise (i.e. when the action involved a page already seen by this user)
+	 */
 	boolean processAction(ActionDetails act) throws IOException {
 	    readCnt++;
 	    // Should we just ignore this action as a duplicate?
-	    if (myPages==null) readMyPages();
-	    if (myPages.contains(act.aid)) return false;
+	    if (myPages==null) readMyPages( );
+	    if (myPages.contains(act.aid)) {
+		dupCnt ++;
+		return false;
+	    }  else myPages.add(act.aid);
+	    if (readCnt > total) {
+		throw new IllegalArgumentException("For one of the users (offset0="+offset0+"), the readCnt has exceeded the predicted value=" + total);
+	    }
+
 	    // Record action details in the all-actions list
 	    long len = actionRAF.length();
 	    actionRAF.seek(len);	    
@@ -46,7 +58,7 @@ class UserActionSaver {
 	/** List of articles covered in this user's history */
 	HashSet<Integer> myPages = null;
 	/** Reads the list of articles already covered for this user */
-	void readMyPages() throws IOException {	   
+	void readMyPages(  ) throws IOException {	   
 	    myPages = new HashSet<Integer>();
 	    userHistoryRAF.seek(offset0 * Integer.SIZE);
 	    for(int i=0; i<savedCnt; i++) {
@@ -54,6 +66,21 @@ class UserActionSaver {
 		int aid = actionRAF.read(new ActionDetails(), actionId).aid;
 		myPages.add(aid);
 	    }	    
+	}
+
+	/** Moves down this user's section of the user history file, 
+	    to remove blank space.
+	    @param newOffset Where the beginning of this user's section should be moved to 
+	*/
+	void compact(int newOffset) throws IOException  {
+	    int byteCnt = savedCnt * Integer.SIZE;
+	    byte[] buf = new byte[byteCnt];
+	    userHistoryRAF.seek(offset0 * Integer.SIZE);
+	    userHistoryRAF.read(buf);
+	    offset0 = newOffset;
+	    userHistoryRAF.seek(offset0 * Integer.SIZE);
+	    userHistoryRAF.write(buf);
+	    total = savedCnt;
 	}
 
     }
@@ -97,9 +124,9 @@ class UserActionSaver {
 	int offset = 0;
 	for(int i=0; i<ui.length; i++) {
 	    users[i] = new UserEntry(ui[i].acceptCnt, offset);
-	    offset += ui[i].acceptCnt;
+	    offset += users[i].total;
 	}	
-
+	System.out.println("Predicted length of the (uncompacted) history file = " + offset);
     }
 
     void addFromJsonFile(File f) throws IOException, JSONException {
@@ -111,10 +138,15 @@ class UserActionSaver {
 	System.out.println("Json data file action entry count = " + len);
 
 	int actionCnt=0, recordedActionCnt=0;
-	//, invalidAidCnt = 0, unexpectedActionCnt=0, botCnt=0, ignorableUserCnt=0;	
+	dupCnt=0;
 	for(int i=0; i< len; i++) {
 	    JSONObject jso = jsa.getJSONObject(i);
 	    ActionLine z = new ActionLine(jso);
+
+	    if (z.ignorableAction || z.isBot) {
+		continue;
+	    }
+
 	    String uname= inferrer.inferUser(z.ip_hash,  z.cookie);
 	    if (z.aid==null || uname==null) continue;
 	    int uid =  userNameTable.get(uname);
@@ -124,37 +156,58 @@ class UserActionSaver {
 	    actionCnt++;
 	    boolean rv = u.processAction(act);
 	    if (rv) recordedActionCnt++;
-
-	    /*	    
-	    UserInfo u = allUsers.get(uid);
-	    if (u==null) allUsers.put(uid, u=new UserInfo(uid, z.utc, z.user_agent));
-	    else u.add(z.utc, z.user_agent);
-
-
-	    allAidsSet.add(z.aid);
-	    userNameTable.addIfNew(uid);
-	    */
 	}
-	System.out.println("Found " + actionCnt + " actions for our users, recorded " + recordedActionCnt);
+	System.out.println("Found " + actionCnt + " actions for our users in this file, recorded " + recordedActionCnt + ". Detected " + dupCnt + " duplicates");
 	
     }
 
-    
+    /** Moves down each user's section of the user history file, 
+	to remove all blank space that exist whenever savedCnt!=total
+	@param newOffset Where the beginning of this user's section should be moved to 
+    */
+    void compact() throws IOException {
+	int offset = 0;
+	for(int i=0; i< users.length; i++) {
+	    users[i].compact(offset);
+	    offset += users[i].total;
+	}
+	userHistoryRAF.setLength( (long)offset * Integer.SIZE);
+    }
+
+    /** Creates a file which stores offsets into the userHistory file for
+	each user
+     */
+    void writeIndexFile( File historyIndexFile ) throws IOException {
+	RandomAccessFile userHistoryIndexRAF = new  RandomAccessFile(historyIndexFile,"rw");
+	for(int i=0; i< users.length; i++) {
+	    userHistoryIndexRAF.writeInt(users[i].offset0);
+	}
+	userHistoryIndexRAF.close();
+    }
 
     RAF<ActionDetails> actionRAF;
     RandomAccessFile userHistoryRAF;
-
+    
     void saveActions(File[] jsonFiles, File outdir) throws IOException {
 	File actionFile = new File(outdir, "actions.dat");
-	actionRAF = new RAF<ActionDetails>(actionFile, "rw", new ActionDetails());
+	actionRAF=new RAF<ActionDetails>(actionFile, "rw", new ActionDetails());
+
 	File historyFile = new File(outdir, "userHistory.dat");
-	userHistoryRAF = new RandomAccessFile(historyFile,"rw");
+	userHistoryRAF=new RandomAccessFile(historyFile,"rw");
 
 	for(File g: jsonFiles) {
 	    System.out.println("Processing " + g);
 	    addFromJsonFile(g);
 	}
+	System.out.println("Processed all actions; |index|="+userHistoryRAF.length()/Integer.SIZE+". Will do compacting now");
+	compact();
+	System.out.println("Done compacting; |index|="+userHistoryRAF.length()/Integer.SIZE);
 
+	actionRAF.close();
+	userHistoryRAF.close();
+
+	File historyIndexFile = new File(outdir, "userHistoryIndex.dat");
+	writeIndexFile(historyIndexFile );
     }
  
 
