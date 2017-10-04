@@ -17,7 +17,7 @@ public class RAF<T extends Storable> extends RandomAccessFile {
 	sizeof = dummy.sizeof();
     }
     
-    void seekN(long n) throws IOException {
+    void seekObject(long n) throws IOException {
 	seek(n * sizeof);
     }
 
@@ -25,7 +25,7 @@ public class RAF<T extends Storable> extends RandomAccessFile {
 	x.write(this);
     }
     void store(T x, long posN) throws IOException  {
-	seekN(posN);
+	seekObject(posN);
 	x.write(this);
     }
 
@@ -33,10 +33,9 @@ public class RAF<T extends Storable> extends RandomAccessFile {
 	blank.readFrom(this);
 	return blank;
     }
-    T read(T blank, long posN) throws IOException  {
-	seekN(posN);
-	blank.readFrom(this);
-	return blank;
+    T read(T blank, long posObject) throws IOException  {
+	seekObject(posObject);
+	return read(blank);
     }
 
     void seekToEnd()  throws IOException {

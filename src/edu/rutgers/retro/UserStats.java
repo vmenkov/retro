@@ -184,6 +184,7 @@ public class UserStats {
 	w.close();
     }
 
+    static final File outdir = new File("out");
 
     void saveActions(NameTable aidNameTable, File[] jsonFiles)  throws IOException {
 	// create user list aligned with userNameTable order
@@ -196,7 +197,6 @@ public class UserStats {
 	//allUsers.values().toArray(new UserInfo[0]));
 
 	allUsers.clear(); // enable GC
-	File outdir = new File("out");
 	outdir.mkdirs();
 	uas.saveActions(jsonFiles, outdir);
    }
@@ -269,8 +269,6 @@ public class UserStats {
 	    String fname = argv[1];
 	    File f = new File(fname);
 	    if (!f.exists()) usage("File " + f + " does not exist");
-	    //	    System.out.println("");
-
 
 	    System.out.println("Too active user exclusion criteria are as follows:");
 	    for(int i=0; i<UserInfo.windowSizes.length; i++) {
@@ -293,20 +291,30 @@ public class UserStats {
 	    }
 
 	    // Save list of users
-	    us.save(new File("users.csv"));
-	    us.userNameTable.save(new File("users.dat"));
+	    outdir.mkdirs();
+	    us.save(new File(outdir, "users.csv"));
+	    us.userNameTable.save(new File(outdir, "users.dat"));
 
 	    // Save sorted list of article IDs
 	    String[] allAids = (String[])us.allAidsSet.toArray(new String[0]);
 	    Arrays.sort(allAids);
 	    NameTable aidNameTable = new NameTable(allAids);
-	    aidNameTable.save(new File("aid.dat"));
+	    aidNameTable.save(new File(outdir, "aid.dat"));
 
 	    if (argv[0].equals("userActions")) {
 		System.out.println("Now, saving user actions...");
 		us.saveActions(aidNameTable, files);
 	    }
  
+	} else if (argv[0].equals("readActions")) {
+	    NameTable userNameTable = new NameTable(new File(outdir, "users.dat"));
+	    NameTable aidNameTable = new NameTable(new File(outdir, "aid.dat"));
+	    UserActionReader uar = new UserActionReader(userNameTable, 
+							aidNameTable, outdir);
+	    uar.report();
+	
+
+
 
 	}  else {
 	    usage();

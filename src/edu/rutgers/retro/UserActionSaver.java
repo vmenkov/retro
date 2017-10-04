@@ -48,7 +48,7 @@ class UserActionSaver {
 	    int actionID = (int)(len/act.sizeof());
 	    actionRAF.store(act);
 	    // Add a pointer to this action to this user's history
-	    userHistoryRAF.seek((offset0 + savedCnt)*Integer.SIZE);
+	    userHistoryRAF.seek((offset0 + savedCnt)*(Integer.SIZE/8));
 	    userHistoryRAF.writeInt(actionID);
 	    savedCnt++;
 	    return true;
@@ -59,7 +59,7 @@ class UserActionSaver {
 	/** Reads the list of articles already covered for this user */
 	void readMyPages(  ) throws IOException {	   
 	    myPages = new HashSet<Integer>();
-	    userHistoryRAF.seek(offset0 * Integer.SIZE);
+	    userHistoryRAF.seek(offset0 * (Integer.SIZE/8));
 	    for(int i=0; i<savedCnt; i++) {
 		int actionId = userHistoryRAF.readInt();
 		int aid = actionRAF.read(new ActionDetails(), actionId).aid;
@@ -72,12 +72,14 @@ class UserActionSaver {
 	    @param newOffset Where the beginning of this user's section should be moved to 
 	*/
 	void compact(int newOffset) throws IOException  {
-	    int byteCnt = savedCnt * Integer.SIZE;
+	    if (newOffset>offset0) throw new IllegalArgumentException("This is not compacting!");
+
+	    int byteCnt = savedCnt * (Integer.SIZE/8);
 	    byte[] buf = new byte[byteCnt];
-	    userHistoryRAF.seek(offset0 * Integer.SIZE);
+	    userHistoryRAF.seek(offset0 * (Integer.SIZE/8));
 	    userHistoryRAF.read(buf);
 	    offset0 = newOffset;
-	    userHistoryRAF.seek(offset0 * Integer.SIZE);
+	    userHistoryRAF.seek(offset0 * (Integer.SIZE/8));
 	    userHistoryRAF.write(buf);
 	    total = savedCnt;
 	}
@@ -94,7 +96,7 @@ class UserActionSaver {
 	    utc = _utc;
 	}
 
-	public int sizeof() { return 3*Integer.SIZE; }
+	public int sizeof() { return 3*(Integer.SIZE/8); }
 	//	byte[] toBytes() {	}
 	public void write(RandomAccessFile f) throws IOException {
 	    f.writeInt(uid);
@@ -107,8 +109,17 @@ class UserActionSaver {
 	    utc = f.readInt();
 	}
 
+	public String toString() {
+	    return "(user="+uid+", aid="+aid+",utc="+utc+")";
+	}
   
     }
+
+   UserActionSaver( NameTable _userNameTable, 
+		    NameTable _aidNameTable) {     
+	userNameTable =	_userNameTable;
+	aidNameTable = _aidNameTable;
+   }
 
     NameTable userNameTable, aidNameTable;
     UserEntry [] users;
@@ -120,9 +131,8 @@ class UserActionSaver {
 		    NameTable _aidNameTable,
 		    HashMap<String, UserStats.UserInfo> allUsers) {
 	// UserStats.UserInfo[] ui) {
+	this(_userNameTable, _aidNameTable);
 	inferrer = _inferrer;
-	userNameTable =	_userNameTable;
-	aidNameTable = _aidNameTable;
 	if (userNameTable.size() !=  allUsers.size()) throw new IllegalArgumentException("Table size mismatch");
 	users = new UserEntry[ allUsers.size()];
 	int offset = 0;
@@ -177,6 +187,9 @@ class UserActionSaver {
 	    if (rv) recordedActionCnt++;
 	}
 	System.out.println("Found " + actionCnt + " acceptable actions in this file, recorded " + recordedActionCnt + ". Detected " + dupCnt + " duplicates");
+	for(UserEntry u: users) {
+	    u.myPages = null; // to enable GC
+	}
 	
     }
 
@@ -190,7 +203,7 @@ class UserActionSaver {
 	    users[i].compact(offset);
 	    offset += users[i].total;
 	}
-	userHistoryRAF.setLength( (long)offset * Integer.SIZE);
+	userHistoryRAF.setLength( (long)offset * (Integer.SIZE/8));
     }
 
     /** Creates a file which stores offsets into the userHistory file for
@@ -206,21 +219,26 @@ class UserActionSaver {
 
     RAF<ActionDetails> actionRAF;
     RandomAccessFile userHistoryRAF;
-    
-    void saveActions(File[] jsonFiles, File outdir) throws IOException {
+
+    void openFiles(File outdir, String mode) throws IOException {
 	File actionFile = new File(outdir, "actions.dat");
 	actionRAF=new RAF<ActionDetails>(actionFile, "rw", new ActionDetails());
 
 	File historyFile = new File(outdir, "userHistory.dat");
 	userHistoryRAF=new RandomAccessFile(historyFile,"rw");
 
+    }
+    
+    void saveActions(File[] jsonFiles, File outdir) throws IOException {
+	openFiles(outdir, "rw");
+
 	for(File g: jsonFiles) {
 	    System.out.println("Processing " + g);
 	    addFromJsonFile(g);
 	}
-	System.out.println("Processed all actions; |index|="+userHistoryRAF.length()/Integer.SIZE+". Will do compacting now");
+	System.out.println("Processed all actions; |index|="+userHistoryRAF.length()/(Integer.SIZE/8)+". Will do compacting now");
 	compact();
-	System.out.println("Done compacting; |index|="+userHistoryRAF.length()/Integer.SIZE);
+	System.out.println("Done compacting; |index|="+userHistoryRAF.length()/(Integer.SIZE/8));
 
 	actionRAF.close();
 	userHistoryRAF.close();
