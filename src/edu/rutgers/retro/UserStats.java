@@ -184,8 +184,6 @@ public class UserStats {
 	w.close();
     }
 
-    static final File outdir = new File("out");
-
     void saveActions(NameTable aidNameTable, File[] jsonFiles)  throws IOException {
 	// create user list aligned with userNameTable order
 	//UserInfo users[] = new UserInfo[userNameTable.size()];
@@ -239,6 +237,8 @@ public class UserStats {
     }
 
     private static ParseConfig ht = null;
+    static File outdir;
+
  
     public static void main(String [] argv) throws IOException, java.text.ParseException, JSONException {
 
@@ -253,7 +253,8 @@ public class UserStats {
 	boolean anon=ht.getOption("anon", true);
 	final boolean useCookies=true;
 
-
+	String outPath = ht.getOption("out", "out");
+	outdir = new File(outPath);
 	if (argv.length < 1) {
 	    usage("Command not specified");
 	} else if (argv[0].equals("users") ||
