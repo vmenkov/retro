@@ -308,14 +308,13 @@ public class UserStats {
 	    }
  
 	} else if (argv[0].equals("readActions")) {
-	    NameTable userNameTable = new NameTable(new File(outdir, "users.dat"));
-	    NameTable aidNameTable = new NameTable(new File(outdir, "aid.dat"));
-	    UserActionReader uar = new UserActionReader(userNameTable, 
-							aidNameTable, outdir);
+	    //	    NameTable userNameTable = new NameTable(new File(outdir, "users.dat"));
+	    //	    NameTable aidNameTable = new NameTable(new File(outdir, "aid.dat"));
+	    UserActionReader uar = new UserActionReader(
+							//userNameTable, aidNameTable, 
+							outdir);
 	    uar.report();
-	
-
-
+	    uar.closeFiles();
 
 	}  else {
 	    usage();

@@ -229,6 +229,11 @@ class UserActionSaver {
 
     }
     
+    void closeFiles() throws IOException {
+	actionRAF.close();
+	userHistoryRAF.close();
+    };
+
     void saveActions(File[] jsonFiles, File outdir) throws IOException {
 	openFiles(outdir, "rw");
 
@@ -240,8 +245,7 @@ class UserActionSaver {
 	compact();
 	System.out.println("Done compacting; |index|="+userHistoryRAF.length()/(Integer.SIZE/8));
 
-	actionRAF.close();
-	userHistoryRAF.close();
+	closeFiles();
 
 	File historyIndexFile = new File(outdir, "userHistoryIndex.dat");
 	writeIndexFile(historyIndexFile );
