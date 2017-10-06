@@ -14,7 +14,9 @@ public class Coaccess {
     
     static interface CAAList {
 	void addValue(int j, int inc);
-    }
+	int[] topCAA(int n);
+	int getValue(int j);
+   }
 
     static class CAAHashMap extends HashMap<Integer,MutableInt> implements CAAList {
 	public void addValue(int j, int inc) {
@@ -25,6 +27,28 @@ public class Coaccess {
                 v.add(inc);
             }
         }
+
+	public int getValue(int j) {
+	     MutableInt v = get(j);         
+	     return (v==null) ? 0: v.intValue();
+	}
+
+
+	/** Returns the n article IDs with the highest counts (coaccess
+	    values) */	    
+	public int[] topCAA(int n) {
+	    Integer[] aids = (Integer[])keySet().toArray(new Integer[0]);
+	    Arrays.sort(aids,
+			new Comparator<Integer>() {			    
+			    public int compare(Integer o1, Integer o2) {
+				return get(o2).intValue() -get(o1).intValue();
+			    }
+			});
+	    int a[] = new int[aids.length < n? aids.length: n];
+	    for(int i=0; i<a.length; i++) a[i] = aids[i];
+	    return a;	    
+	}
+
     }
 
     static void coaccessFinal(UserActionReader uar, Vector<Integer> articles) throws IOException {
@@ -40,13 +64,27 @@ public class Coaccess {
 		CAAList caa = aSet.get(x.aid);
 		if (caa!=null) {
 		    for(UserActionReader.ActionDetails y: as) {	    
-			caa.addValue(y.aid, 1);
+			if (y.aid!=x.aid) {
+			    caa.addValue(y.aid, 1);
+			}
 		    }
 		}
 	    }
 	}
 
+	final int n = 10;
+
+	for(int aid: articles) {
+	    CAAList caa = aSet.get(aid);
+	    int[] tops = caa.topCAA(n);
+	    System.out.print("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " are:");
+	    for(int baid: tops) {
+		System.out.print(" A["+baid+"]=" + uar.aidNameTable.nameAt(baid) + ":" + caa.getValue(baid) +",");
+	    }
+	    System.out.println();
 	
+	}
+
     }
 
     static public void main(String argv[]) throws IOException {
@@ -57,10 +95,13 @@ public class Coaccess {
 	UserActionReader uar = new UserActionReader(indexDir);
 
 	Vector<Integer> articles = new Vector<Integer>();
-	String aname = argv[0];
-	int aid = uar.aidNameTable.get(aname);
-	System.out.println("Article " + aid + " ("+aname+")");
-	articles.add(aid);
+	for(int j=0; j<argv.length; j++) {
+	    String aname = argv[j];
+	    int aid = uar.aidNameTable.get(aname);
+	    System.out.println("Article " + aid + " ("+aname+")");
+	    articles.add(aid);
+	}
+	coaccessFinal( uar, articles);
     }
 
 }
