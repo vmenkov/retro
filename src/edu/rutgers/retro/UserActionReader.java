@@ -57,7 +57,7 @@ public class  UserActionReader extends UserActionSaver {
    }
 
     /** Iterator for reading the stored list of actions for a given user */
-    Iterator<ActionDetails> actionsForUserIt(int uid) {
+    Iterator<ActionDetails> actionsForUserIt(final int uid) {
 	return new Iterator<ActionDetails>() {
 	    int nextPtr = 0;
 	    public boolean	hasNext() { return nextPtr < users[uid].total; }
