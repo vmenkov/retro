@@ -66,10 +66,9 @@
 </target>
 
 
-<!-- This target tells Ant how to compile AXS. We used to have the argument 
-     target="1.5"
-in the javac command, to make it easier for people elsewhere to use our
-code; but not anymore. -->
+<!-- This target tells Ant how to compile AXS. We used to have the
+     argument target="1.5" in the javac command, to make it easier for
+     people elsewhere to use our code; but not anymore. -->
 <target name="compile" depends="init"
         description="Compile the Java source code">
   <!-- Compile the java code from ${src} into ${build} -->

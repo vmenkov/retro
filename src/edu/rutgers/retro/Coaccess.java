@@ -21,11 +21,13 @@ public class Coaccess {
 	int[] topCAA(int n);
 	int getValue(int j);
 	/** Increments the values in this map as per incrementMap */
+	/*
 	default void add(final CAAHashMap incrementMap) {
 	    for(Integer z: incrementMap.keySet()) {
 		addValue(z, incrementMap.get(z).intValue());
 	    }	    
 	}
+	*/
 
     }
 
@@ -96,13 +98,11 @@ public class Coaccess {
 	}
 
 	/** Increments the values in this map as per incrementMap */
-	/*
 	void add(final CAAHashMap incrementMap) {
 	    for(Integer z: incrementMap.keySet()) {
 		addValue(z, incrementMap.get(z).intValue());
 	    }	    
 	}
-	*/
 
 
     }
