@@ -3,24 +3,14 @@ package edu.rutgers.retro;
 
 import java.io.*;
 import java.util.*;
-/*
-import java.util.zip.*;
-import java.util.regex.*;
-import java.text.*;
-*/
 
-public class RAF<T extends Storable> extends RandomAccessFile {
-    /** Size of one storable object, in bytes */
-    final int sizeof;
-    RAF(File file, String mode, T dummy) throws IOException {
-	super(file, mode);
-	sizeof = dummy.sizeof();
+
+public class RAF<T extends Storable> extends ObjectRandomAccessFile  {
+      RAF(File file, String mode, T dummy) throws IOException {
+	super(file, mode, dummy.sizeof());
     }
     
-    void seekObject(long n) throws IOException {
-	seek(n * sizeof);
-    }
-
+   
     void store(T x) throws IOException  {
 	x.write(this);
     }
@@ -37,9 +27,6 @@ public class RAF<T extends Storable> extends RandomAccessFile {
 	seekObject(posObject);
 	return read(blank);
     }
-
-    void seekToEnd()  throws IOException {
-	seek(length());
-    }
+ 
 
 }

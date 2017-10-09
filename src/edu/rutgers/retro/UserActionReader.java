@@ -13,14 +13,14 @@ import org.json.*;
 public class  UserActionReader extends UserActionSaver {
 
     private void readIndexFile( File historyIndexFile ) throws IOException {
-	RandomAccessFile userHistoryIndexRAF = new  RandomAccessFile(historyIndexFile,"r");
+	ObjectRandomAccessFile userHistoryIndexRAF = new ObjectRandomAccessFile(historyIndexFile,"r", Integer.SIZE/8);
 	users = new UserEntry[userNameTable.size()];
-	if (users.length * (Integer.SIZE/8) != userHistoryIndexRAF.length()) throw new IllegalArgumentException("File size mismatch for " + userHistoryIndexRAF + "; should be " + users.length + "*" + (Integer.SIZE/8));
+	if (users.length != userHistoryIndexRAF.lengthObject()) throw new IllegalArgumentException("File size mismatch for " + userHistoryIndexRAF + "; should be " + users.length + "*" + userHistoryIndexRAF.sizeof);
 	int offset = userHistoryIndexRAF.readInt();
 	for(int i=0; i< users.length; i++) {
 	    int offsetNext =  (i<users.length-1)?
 		userHistoryIndexRAF.readInt() : 
-		(int)(userHistoryRAF.length() / (Integer.SIZE/8));
+		(int)userHistoryRAF.lengthObject();
 	    users[i] = new UserEntry(offsetNext-offset, offset, false);
 	    offset = offsetNext;
 	}
@@ -31,7 +31,7 @@ public class  UserActionReader extends UserActionSaver {
  	for(int i=0; i< users.length; i++) {
 	    System.out.println("User["+i+"] has " + users[i].total + " actions");
 	    /*
-	    userHistoryRAF.seek(users[i].offset0 * (Integer.SIZE/8));
+	    userHistoryRAF.seekObject(users[i].offset0);
 	    for(int k=0; k< users[i].total; k++) {
 		int actionID = userHistoryRAF.readInt();
 		ActionDetails a = actionRAF.read(new ActionDetails(), actionID);
@@ -45,16 +45,29 @@ public class  UserActionReader extends UserActionSaver {
 	}
     }
 
-    ActionDetails[] actionsForUser(int uid)  throws IOException {
-	ActionDetails[] as = new 	ActionDetails[users[uid].total];
-	userHistoryRAF.seek(users[uid].offset0 * (Integer.SIZE/8));
+
+   /** The first n actions for the specified user */
+    private ActionDetails[] someActionsForUser(int uid, final int n)  throws IOException {
+	ActionDetails[] as = new ActionDetails[n];
+	userHistoryRAF.seekObject(users[uid].offset0);
 	for(int k=0; k< as.length; k++) {
 	    int actionID = userHistoryRAF.readInt();
 	    as[k] = actionRAF.read(new ActionDetails(), actionID);
 	}
-	return as;
-	
-   }
+	return as;	
+    }
+
+    /** All actions for the specified user */
+    ActionDetails[] actionsForUser(int uid)  throws IOException {
+	return someActionsForUser(uid, users[uid].total);
+    }
+
+    /** The first readCnt actions for the specified user */
+    ActionDetails[] earlyActionsForUser(int uid)  throws IOException {
+	return someActionsForUser(uid, users[uid].readCnt);
+    }
+
+
 
     /** Iterator for reading the stored list of actions for a given user */
     Iterator<ActionDetails> actionsForUserIt(final int uid) {
@@ -63,7 +76,7 @@ public class  UserActionReader extends UserActionSaver {
 	    public boolean	hasNext() { return nextPtr < users[uid].total; }
 	    public ActionDetails next() throws NoSuchElementException {
 		try {
-		    userHistoryRAF.seek((users[uid].offset0 + nextPtr) * (Integer.SIZE/8));
+		    userHistoryRAF.seekObject(users[uid].offset0 + nextPtr);
 		    int actionID = userHistoryRAF.readInt();
 		    nextPtr++;
 		    return actionRAF.read(new ActionDetails(), actionID);	
@@ -87,7 +100,11 @@ public class  UserActionReader extends UserActionSaver {
 	openFiles(indexDir, "r");
 	File historyIndexFile = new File(indexDir, "userHistoryIndex.dat");
 	readIndexFile(historyIndexFile);
-   }
+    }
 
+    /** Used in incremental coacces computation, at the beginning of a new run */
+    void reset() {
 	
+    }
+
 }

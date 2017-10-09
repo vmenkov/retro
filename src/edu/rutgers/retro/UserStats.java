@@ -116,7 +116,7 @@ public class UserStats {
 	int len = jsa.length();
 	System.out.println("Json data file action entry count = " + len);
 
-	int cnt=0, ignorableActionCnt=0, invalidAidCnt = 0, unexpectedActionCnt=0, botCnt=0, ignorableUserCnt=0;
+	int cnt=0, ignorableActionCnt=0, invalidAidCnt = 0, unexpectedActionCnt=0, botCnt=0, ignorableUserCnt=0, usedCnt = 0;
 	for(int i=0; i< len; i++) {
 	    JSONObject jso = jsa.getJSONObject(i);
 	    ActionLine z = new ActionLine(jso);
@@ -145,6 +145,7 @@ public class UserStats {
 
 	    allAidsSet.add(z.aid);
 	    userNameTable.addIfNew(uid);
+	    usedCnt++;
 	}
 	
 	System.out.println("Analyzable action entries count = " + cnt);
@@ -156,6 +157,7 @@ public class UserStats {
 	if (botCnt>0) 	System.out.println("Skipped known bot entries count = " + botCnt);
 	if (ignorableUserCnt>0) System.out.println("Ignored user entries count = " +ignorableUserCnt);
 
+	System.out.println("Eventually used actions (including those from too-active users, some to be later discarded) = " + usedCnt);	
 
 	int rejectedUserCnt=0;
 	for(UserInfo ui: allUsers.values()) {
@@ -163,6 +165,8 @@ public class UserStats {
 	}
 
 	System.out.println("" + allUsers.size() +  " users identified; of them, " +rejectedUserCnt  +  " found to be too active");
+
+
     }
 
 

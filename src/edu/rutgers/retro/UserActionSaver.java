@@ -23,8 +23,10 @@ class UserActionSaver {
 	/** The beginning of this user's data in the file. The units are action
 	    records, rather than bytes */
 	int offset0;
-	/** How many actions for this user have been already read from the JSON file... and saved to the binary file. The two numbers are the same (readCnt eventually becoming equal to this.total), unless there are duplicates */
-	int readCnt=0, savedCnt=0;
+	/** During log reading: How many actions for this user have been already read from the JSON file? Once all the logs have been read, this should become equal to this.total. This variable is also used during incremental coaccess computation, indicating how many action values from this user's section of the index have been processed so far. */
+	int readCnt=0;
+	/** How many actions for this user have been already read from the JSON file AND saved to the binary file. This numbers is always &le;  readCnt; it is &lt; readCnt is the user has  duplicate actions (multiple actions applied to the same article). */
+	int savedCnt=0;
 	UserEntry(int _total, int _offset, boolean _willReject) {
 	    total = _total;
 	    offset0 = _offset;
@@ -48,7 +50,7 @@ class UserActionSaver {
 	    int actionID = (int)(len/act.sizeof());
 	    actionRAF.store(act);
 	    // Add a pointer to this action to this user's history
-	    userHistoryRAF.seek((offset0 + savedCnt)*(Integer.SIZE/8));
+	    userHistoryRAF.seekObject(offset0 + savedCnt);
 	    userHistoryRAF.writeInt(actionID);
 	    savedCnt++;
 	    return true;
@@ -59,7 +61,7 @@ class UserActionSaver {
 	/** Reads the list of articles already covered for this user */
 	void readMyPages(  ) throws IOException {	   
 	    myPages = new HashSet<Integer>();
-	    userHistoryRAF.seek(offset0 * (Integer.SIZE/8));
+	    userHistoryRAF.seekObject(offset0);
 	    for(int i=0; i<savedCnt; i++) {
 		int actionId = userHistoryRAF.readInt();
 		int aid = actionRAF.read(new ActionDetails(), actionId).aid;
@@ -74,46 +76,28 @@ class UserActionSaver {
 	void compact(int newOffset) throws IOException  {
 	    if (newOffset>offset0) throw new IllegalArgumentException("This is not compacting!");
 
-	    int byteCnt = savedCnt * (Integer.SIZE/8);
+	    int byteCnt = savedCnt * userHistoryRAF.sizeof;
 	    byte[] buf = new byte[byteCnt];
-	    userHistoryRAF.seek(offset0 * (Integer.SIZE/8));
+	    userHistoryRAF.seekObject(offset0);
 	    userHistoryRAF.read(buf);
 	    offset0 = newOffset;
-	    userHistoryRAF.seek(offset0 * (Integer.SIZE/8));
+	    userHistoryRAF.seekObject(offset0);
 	    userHistoryRAF.write(buf);
 	    total = savedCnt;
 	}
 
+
+	/** Used in incremental coacces computation, to indicate that this user has had some actions involving articles of interest on this run */
+	boolean ofInterest=false;
+
+	/** Used in incremental coacces computation, at the beginning of a new run */
+	void reset() {
+	    readCnt=0;
+	    ofInterest=false;
+	}
+
     }
 
-    /** Mapped to data file */
-    class ActionDetails implements Storable {
-	int uid, aid, utc;
-	ActionDetails() {}
-	ActionDetails(int _uid, int _aid, int _utc) {
-	    uid = _uid;
-	    aid = _aid;
-	    utc = _utc;
-	}
-
-	public int sizeof() { return 3*(Integer.SIZE/8); }
-	//	byte[] toBytes() {	}
-	public void write(RandomAccessFile f) throws IOException {
-	    f.writeInt(uid);
-	    f.writeInt(aid);
-	    f.writeInt(utc);
-	}
-	public void readFrom(RandomAccessFile f) throws IOException {
-	    uid = f.readInt();
-	    aid = f.readInt();
-	    utc = f.readInt();
-	}
-
-	public String toString() {
-	    return "(user="+uid+", aid="+aid+",utc="+utc+")";
-	}
-  
-    }
 
    UserActionSaver( NameTable _userNameTable, 
 		    NameTable _aidNameTable) {     
@@ -203,7 +187,7 @@ class UserActionSaver {
 	    users[i].compact(offset);
 	    offset += users[i].total;
 	}
-	userHistoryRAF.setLength( (long)offset * (Integer.SIZE/8));
+	userHistoryRAF.setLengthObject(offset);
     }
 
     /** Creates a file which stores offsets into the userHistory file for
@@ -218,14 +202,14 @@ class UserActionSaver {
     }
 
     RAF<ActionDetails> actionRAF;
-    RandomAccessFile userHistoryRAF;
+    ObjectRandomAccessFile userHistoryRAF;
 
     void openFiles(File outdir, String mode) throws IOException {
 	File actionFile = new File(outdir, "actions.dat");
 	actionRAF=new RAF<ActionDetails>(actionFile, "rw", new ActionDetails());
 
 	File historyFile = new File(outdir, "userHistory.dat");
-	userHistoryRAF=new RandomAccessFile(historyFile,"rw");
+	userHistoryRAF=new ObjectRandomAccessFile(historyFile,"rw", Integer.SIZE/8);
 
     }
     
@@ -241,9 +225,9 @@ class UserActionSaver {
 	    System.out.println("Processing " + g);
 	    addFromJsonFile(g);
 	}
-	System.out.println("Processed all actions; |index|="+userHistoryRAF.length()/(Integer.SIZE/8)+". Will do compacting now");
+	System.out.println("Processed all actions; |index|="+userHistoryRAF.lengthObject()+". Will do compacting now");
 	compact();
-	System.out.println("Done compacting; |index|="+userHistoryRAF.length()/(Integer.SIZE/8));
+	System.out.println("Done compacting; |index|="+userHistoryRAF.lengthObject());
 
 	closeFiles();
 
