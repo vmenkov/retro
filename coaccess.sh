@@ -1,5 +1,6 @@
 #!/bin/csh
 
 time java  -cp ../lib/retro.jar:../lib/commons-lang-2.4.jar \
- -Danon=false  edu.rutgers.retro.Coaccess uname \
-5840f8c41a0a a9b87210f129 6421f7346b2d d2204c1a1135
+-Danon=false -Dinc=true edu.rutgers.retro.Coaccess uname \
+f375259a9068 0b2a849197ac e19772187909 dac0bf416e4c b4a8892d4f8b
+

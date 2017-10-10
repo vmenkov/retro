@@ -28,6 +28,8 @@ public class Coaccess {
 	    }	    
 	}
 	*/
+	/** Increments the values in this row as per incrementMap */
+	void add(CAAHashMap incrementMap);
 
     }
 
@@ -98,7 +100,7 @@ public class Coaccess {
 	}
 
 	/** Increments the values in this map as per incrementMap */
-	void add(final CAAHashMap incrementMap) {
+	public void add(final CAAHashMap incrementMap) {
 	    for(Integer z: incrementMap.keySet()) {
 		addValue(z, incrementMap.get(z).intValue());
 	    }	    
@@ -107,7 +109,7 @@ public class Coaccess {
 
     }
 
-    /** Used to read the action index */
+    /** Used to read data from the action index */
     UserActionReader uar;
     /** This map has an entry for every article of interest */
     final HashMap<Integer,CAAList> aSet;
@@ -118,12 +120,15 @@ public class Coaccess {
     Coaccess(UserActionReader _uar, Vector<Integer> _articles) {
 	uar = _uar;
 	articles = _articles;
-	aSet = makeBlankMap();
+	aSet = new HashMap<Integer,CAAList>();
+	for(Integer aid: articles) {
+	    aSet.put(aid, new CAAHashMap());
+	}
     }    
 
     /** Creates a blank map with a slot for each article of interest. */
-    private HashMap<Integer,CAAList> makeBlankMap() {
-	HashMap<Integer,CAAList> bSet = new HashMap<Integer,CAAList>();
+    private HashMap<Integer,CAAHashMap> makeBlankMap() {
+	HashMap<Integer,CAAHashMap> bSet = new HashMap<Integer,CAAHashMap>();
 	for(Integer aid: articles) {
 	    bSet.put(aid, new CAAHashMap());
 	}
@@ -153,9 +158,11 @@ public class Coaccess {
 		}
 	    }
 	}
+	reportTop();
+    }
 
+    void reportTop()     {
 	final int n = 10;
-
 	for(int aid: articles) {
 	    CAAList caa = aSet.get(aid);
 	    int[] tops = caa.topCAA(n);
@@ -173,14 +180,14 @@ public class Coaccess {
      */
     int coaccessIncrementalStep(int pos0, int t1) throws IOException {
 	int pos = pos0;
-	HashMap<Integer,CAAList> bSet = makeBlankMap();
+	HashMap<Integer,CAAHashMap> bSet = makeBlankMap();
 	final int len = (int)uar.actionRAF.lengthObject();
 	ActionDetails a = new ActionDetails();
 	for(; pos < len && uar.actionRAF.read(a,pos).utc < t1; pos++) {
 	    UserActionReader.UserEntry user = uar.users[a.uid];
 	    CAAList caa = bSet.get(a.aid);
 	    if (user.ofInterest || caa!=null) {
-		ActionDetails[] as = null;
+		ActionDetails[] as = uar.earlyActionsForUser(a.uid);
 		
 		if (user.ofInterest) {    // update other articles' CAA
 		    for(ActionDetails y: as) {	    
@@ -202,6 +209,9 @@ public class Coaccess {
 	    }
 	    user.readCnt++;
 	}
+	for(Integer aid: bSet.keySet()) { 
+	    aSet.get(aid).add(bSet.get(aid));
+	}
 	return pos;
     }
 
@@ -215,6 +225,7 @@ public class Coaccess {
 	    utc1 += step;
 	    pos = coaccessIncrementalStep(pos, utc1);	    
 	}
+	reportTop();
     }
 
     static public void main(String argv[]) throws IOException {
@@ -224,6 +235,9 @@ public class Coaccess {
 	File indexDir = new File(indexPath);
 	UserActionReader uar = new UserActionReader(indexDir);
 
+	boolean inc = ht.getOption("inc", false);
+
+	System.out.println("Incremental mode=" + inc);
 	Vector<Integer> articles = new Vector<Integer>();
 	int ja=0;
 	String cmd = argv[ja++];
@@ -249,7 +263,11 @@ public class Coaccess {
 	    throw new IllegalArgumentException("Unknown command: " + cmd);
 	}
 	Coaccess coa = new Coaccess(uar, articles);
-	coa.coaccessFinal();
+	if (inc) {
+	    coa.coaccessIncremental();
+	} else {
+	    coa.coaccessFinal();
+	}
     }
 
 }
