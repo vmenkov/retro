@@ -186,25 +186,29 @@ public class Coaccess {
 	for(; pos < len && uar.actionRAF.read(a,pos).utc < t1; pos++) {
 	    UserActionReader.UserEntry user = uar.users[a.uid];
 	    CAAList caa = bSet.get(a.aid);
-	    if (user.ofInterest || caa!=null) {
-		ActionDetails[] as = uar.earlyActionsForUser(a.uid);
 		
-		if (user.ofInterest) {    // update other articles' CAA
+	    if (user.ofInterest!=null) {  // update CAA for the articles of interest seen earlier by this user
+		    /*
 		    for(ActionDetails y: as) {	    
 			CAAList cay = bSet.get(y.aid);
 			if (cay!=null && y.aid!=a.aid) {
 			    cay.addValue(a.aid, 1);
 			}
 		    }
+		    */
+		for(int j: user.ofInterest) {
+		    if (j==a.aid) throw new AssertionError();
+		    bSet.get(j).addValue(a.aid, 1);
 		}
+	    }
 
-		if (caa!=null) {
-		    user.ofInterest=true;
-		    for(ActionDetails y: as) {	    
-			if (y.aid!=a.aid) {
-			    caa.addValue(y.aid, 1);
-			}
-		    }
+	    if (caa!=null) { // this is an article of interest
+		if (user.ofInterest==null) user.ofInterest = new Vector<Integer>(2,4);
+		user.ofInterest.add(a.aid);
+		ActionDetails[] as = uar.earlyActionsForUser(a.uid);
+		for(ActionDetails y: as) {	    
+		    if (y.aid==a.aid)  throw new AssertionError();
+		    caa.addValue(y.aid, 1);			
 		}
 	    }
 	    user.readCnt++;

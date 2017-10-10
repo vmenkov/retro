@@ -88,12 +88,14 @@ class UserActionSaver {
 
 
 	/** Used in incremental coacces computation, to indicate that this user has had some actions involving articles of interest on this run */
-	boolean ofInterest=false;
+	//	boolean ofInterest=false;
+	Vector<Integer> ofInterest=null;
 
 	/** Used in incremental coacces computation, at the beginning of a new run */
 	void reset() {
 	    readCnt=0;
-	    ofInterest=false;
+	    //	    ofInterest=false;
+	    ofInterest=null;
 	}
 
     }
