@@ -206,10 +206,10 @@ class UserActionSaver {
 
     void openFiles(File outdir, String mode) throws IOException {
 	File actionFile = new File(outdir, "actions.dat");
-	actionRAF=new RAF<ActionDetails>(actionFile, "rw", new ActionDetails());
+	actionRAF=new RAF<ActionDetails>(actionFile,mode, new ActionDetails());
 
 	File historyFile = new File(outdir, "userHistory.dat");
-	userHistoryRAF=new ObjectRandomAccessFile(historyFile,"rw", Integer.SIZE/8);
+	userHistoryRAF=new ObjectRandomAccessFile(historyFile,mode, Integer.SIZE/8);
 
     }
     
