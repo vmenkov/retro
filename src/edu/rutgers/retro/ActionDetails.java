@@ -12,7 +12,11 @@ class ActionDetails implements Storable {
 	aid = _aid;
 	utc = _utc;
     }
-    
+    /** Creates a copy of an object */
+    ActionDetails(ActionDetails a) {
+	this(a.uid, a.aid, a.utc);
+    }
+ 
     public int sizeof() { return 3*(Integer.SIZE/8); }
     //	byte[] toBytes() {	}
     public void write(RandomAccessFile f) throws IOException {

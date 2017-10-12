@@ -2,8 +2,6 @@ package edu.rutgers.retro;
 
 import java.io.*;
 import java.util.*;
-import java.util.zip.*;
-import java.util.regex.*;
 import java.text.*;
 
 import org.json.*;
@@ -87,14 +85,12 @@ class UserActionSaver {
 	}
 
 
-	/** Used in incremental coacces computation, to indicate that this user has had some actions involving articles of interest on this run */
-	//	boolean ofInterest=false;
+	/** Used in incremental coacces computation, to indicate that this user has had some actions involving this run's articles of interest. Contains the list of articles of interest the user has seen so far, or null if none has been seen yet. */
 	Vector<Integer> ofInterest=null;
 
 	/** Used in incremental coacces computation, at the beginning of a new run */
 	void reset() {
 	    readCnt=0;
-	    //	    ofInterest=false;
 	    ofInterest=null;
 	}
 
@@ -116,7 +112,6 @@ class UserActionSaver {
     UserActionSaver(ArxivUserInferrer _inferrer, NameTable _userNameTable, 
 		    NameTable _aidNameTable,
 		    HashMap<String, UserStats.UserInfo> allUsers) {
-	// UserStats.UserInfo[] ui) {
 	this(_userNameTable, _aidNameTable);
 	inferrer = _inferrer;
 	if (userNameTable.size() !=  allUsers.size()) throw new IllegalArgumentException("Table size mismatch");
