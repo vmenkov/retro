@@ -22,7 +22,7 @@ class CAAHashMap extends HashMap<Integer,MutableInt> implements CAAList {
     }	
     
     /** Computes difference between the values in 2 columns */
-    private int getDiff(int j1, int j2) {
+    public int getDiff(int j1, int j2) {
 	return getValue(j1) - getValue(j2);
     }
     
@@ -50,7 +50,7 @@ class CAAHashMap extends HashMap<Integer,MutableInt> implements CAAList {
 	@param incrementMap Values from incrementMap map are to be
 	added to values from this map    
     */	
-    public int[] topCAA(int n, final CAAHashMap incrementMap) {
+    public int[] topCAA(int n, final CAAList incrementMap) {
 	Vector<Integer> extra =new Vector<Integer>();
 	for(Integer z: incrementMap.keySet()) {
 	    if (!containsKey(z)) extra.add(z);
@@ -73,9 +73,9 @@ class CAAHashMap extends HashMap<Integer,MutableInt> implements CAAList {
     }
     
     /** Increments the values in this map as per incrementMap */
-    public void add(final CAAHashMap incrementMap) {
+    public void add(final CAAList incrementMap) {
 	for(Integer z: incrementMap.keySet()) {
-	    addValue(z, incrementMap.get(z).intValue());
+	    addValue(z, incrementMap.getValue(z));
 	}	    
     }
 

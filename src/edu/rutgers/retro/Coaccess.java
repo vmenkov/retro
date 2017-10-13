@@ -5,6 +5,9 @@ import java.util.*;
 
 import org.apache.commons.lang.mutable.*;
 
+/** The main module for coaccess data computation and analysis. Includes the
+    "privacy" research component.
+*/
 public class Coaccess {
 
     /** Used to read data from the action index */
@@ -44,7 +47,7 @@ public class Coaccess {
     /** Computes the coaccess vectors for specified articles based on
 	the community's entire history (i.e. as the coaccess matrix
 	would stand at the end of the period represented in the history 
-	data.
+	data).
 	@param articles The list of articles for which we want to compute
 	the coaccess values
      */
@@ -67,19 +70,31 @@ public class Coaccess {
 	reportTop();
     }
 
+    /** Prints the top coaccess values for all articles of interest. */
     void reportTop()     {
 	final int n = 10;
 	for(int aid: articles) {
 	    CAAList caa = aSet.get(aid);
 	    int[] tops = caa.topCAA(n);
-	    System.out.print("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " are:");
-	    for(int baid: tops) {
-		if (baid==aid)  throw new AssertionError("Duplicates should have been excluded!");
-		System.out.print(" A["+baid+"]=" + uar.aidNameTable.nameAt(baid) + ":" + caa.getValue(baid) +",");
-	    }
-	    System.out.println();
+	    System.out.println("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " are:" + topToString(caa, tops));
 	}
     }
+
+    String topToString(CAAList caa, int[] tops) {
+	return  topToString( caa, null, tops);
+    }
+
+    String topToString(CAAList caa, CAAList cab,int[] tops) {
+	StringBuffer b = new StringBuffer();
+	for(int baid: tops) {
+	    //if (baid==aid)  throw new AssertionError("Duplicates should have been excluded!");
+	    int x=caa.getValue(baid);
+	    if (cab!=null) x+= cab.getValue(baid);
+	    b.append(" A["+baid+"]=" + uar.aidNameTable.nameAt(baid)+":"+x+",");
+	}
+	return b.toString();
+    }
+    
 
     /** Information about an action whose privacy impact we want to measure 
      */
@@ -89,7 +104,7 @@ public class Coaccess {
 	    because the caller may reuse the ActionDetails object as
 	    it reads data from a file */
 	MinusData(ActionDetails _ad) {
-	    ad = new ActionDetails(ad);
+	    ad = new ActionDetails(_ad);
 	}
 	void add(int i, int j, int inc) {
 	    CAAHashMap z = get(i);
@@ -98,30 +113,71 @@ public class Coaccess {
 	}
     }
 
-    /** One object per user */
+    /** A PrivacyLog object, associated with one user, keeps track of
+	the potential visibiliy of this user's actions to others. */
     class PrivacyLog {	
 	int actionCnt=0;
 	int visisbleActionCnt=0;
+	int recListCnt =0;
+	int changedRecListCnt =0;
 	/** not yet processed actions from this incremental step */
 	Vector<MinusData> minusDataVec = new Vector<MinusData>();
 	void analyze() {
 	    final int n=10;
 	    if (minusDataVec.size()==0) return;
 	    int uid = minusDataVec.elementAt(0).ad.uid;
-
+	    System.out.println("Testing user " + uid + " ("+uar.userNameTable.nameAt(uid)+")" );
+	
 	    for(MinusData minusSet: minusDataVec) {
 		//int aid = minusSet.ad.aid;
+		boolean visible=false;
 		for(int aid: minusSet.keySet()) {
+		    recListCnt++;
 		    CAAHashMap cab = minusSet.get(aid);
 		    CAAList caa = aSet.get(aid);
 		    int[] tops0 = caa.topCAA(n);
 		    int[] tops1 = caa.topCAA(n, cab);
+		    if (!arraysEqual(tops0, tops1)) {
+			changedRecListCnt++;
+			visible = true;
+
+			System.out.print("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " affected. ");
+			if (diffIsInsertionsOfOnesOnly(caa, tops1, tops0)) {
+				System.out.println(" Trivial diff (addition of singles)");	
+			} else {
+			    System.out.println();
+			    System.out.println("With action: " + topToString(caa, tops0));
+			    System.out.println("W/o  action: " + topToString(caa, cab, tops1));
+			}
+	
+		    }
 		}
+		if (visible) visisbleActionCnt++;			
 		actionCnt++;		
 	    }
 	}
     }
 
+    static boolean arraysEqual( int[] a, int[] b) {
+	if (a.length != b.length) return false;
+	for(int i=0; i<a.length; i++) {
+	    if (a[i]!=b[i]) return false;
+	}
+	return true;
+    }
+
+    /** Returns true if b[] only differs from a[] by insertion of some ones
+     */
+    static boolean diffIsInsertionsOfOnesOnly(CAAList caa, int[] a, int[] b) {
+	int pa=0, pb=0;
+	while(pa<a.length && pb<b.length) {
+	    if (a[pa] == b[pb]) { pa++; pb++; continue;}
+	    if (caa.getValue(b[pb])==1) { pb++; continue;}
+	    return false;
+	}
+	if (pb<b.length) throw new IllegalArgumentException();
+	return true;
+    }		    
 
     /** One step of incremental coaccess computation. Covers the range
 	of actions with pos &ge; pos0 and time &lt; t1.
@@ -134,6 +190,7 @@ public class Coaccess {
 	@return new start position in the action list
      */
     int coaccessIncrementalStep(int pos0, int t1) throws IOException {
+	System.out.println("Step ending at t=" + t1 +" ("+new Date((long)t1*1000L)+")");
 	int pos = pos0;
 	HashMap<Integer,CAAHashMap> bSet = makeBlankMap();
 	final int len = (int)uar.actionRAF.lengthObject();
@@ -161,8 +218,8 @@ public class Coaccess {
 		if (user.ofInterest==null) user.ofInterest = new Vector<Integer>(2,4);
 		user.ofInterest.add(a.aid);
 
-		CAAList minusCaa = doMinus? minusSet.get(a.aid): null;
-
+		CAAHashMap minusCaa = null;
+		if (doMinus) minusSet.put(a.aid, minusCaa=new CAAHashMap());
 		ActionDetails[] as = uar.earlyActionsForUser(a.uid);
 		for(ActionDetails y: as) {	    
 		    caa.addValue(y.aid, 1);
@@ -194,6 +251,15 @@ public class Coaccess {
 	    pos = coaccessIncrementalStep(pos, utc1);	    
 	}
 	reportTop();
+
+	System.out.println("Privacy report");
+	for(Integer uid: utSet.keySet()) {
+	    PrivacyLog pLog = utSet.get(uid);
+	    System.out.println("For user " + uid + " ("+uar.userNameTable.nameAt(uid)+"), out of " + pLog.actionCnt + ", visible " + pLog.visisbleActionCnt + 
+			       " (" +pLog.changedRecListCnt+ " actions out of " +pLog.recListCnt);
+
+	}
+
     }
 
     static public void main(String argv[]) throws IOException {
