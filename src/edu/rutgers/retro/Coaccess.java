@@ -113,7 +113,7 @@ public class Coaccess {
 	}
     }
 
-    static final boolean doubleCheck = true;
+    static final boolean doubleCheck = false;
 
     /** A PrivacyLog object, associated with one user, keeps track of
 	the potential visibiliy of this user's actions to others. */
