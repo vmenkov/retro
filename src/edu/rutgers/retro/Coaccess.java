@@ -76,7 +76,8 @@ public class Coaccess {
 	for(int aid: articles) {
 	    CAAList caa = aSet.get(aid);
 	    int[] tops = caa.topCAA(n);
-	    System.out.println("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " are:" + topToString(caa, tops));
+	    System.out.println("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " ("+caa.size()+") are:");
+	    System.out.println( topToString(caa, tops));
 	}
     }
 
