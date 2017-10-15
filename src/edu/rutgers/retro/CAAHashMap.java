@@ -26,10 +26,18 @@ class CAAHashMap extends HashMap<Integer,MutableInt> implements CAAList {
 	return getValue(j1) - getValue(j2);
     }
     
+    /** This array may be created during the most recent topCAA(n) call;
+	it will contain the top n values, as well as those that are within 
+	1 from it (i.e. those that could be pushed into the top n by a small
+	increment).
+     */
+    int[] candidates=null;
+
     /** Returns the n article IDs with the highest counts (coaccess
 	values). For tie breaking, articles' internal IDs are used. 
     */	
     public int[] topCAA(int n) {
+	if (n==0) return new int[0];
 	Integer[] aids = (Integer[])keySet().toArray(new Integer[0]);
 	Arrays.sort(aids,
 		    new Comparator<Integer>() {			    
@@ -39,12 +47,41 @@ class CAAHashMap extends HashMap<Integer,MutableInt> implements CAAList {
 			    return d;
 			}
 		    });
-	int a[] = new int[aids.length < n? aids.length: n];
+	if (aids.length < n) n = aids.length;
+	// How many candidates do we need to save?
+        int m = n;
+	int threshold = getValue(n-1)-1;
+	while(m < aids.length && getValue(m) >= threshold) m++;
+	candidates=new int[m];
+	for(int i=0; i<candidates.length; i++) candidates[i] = aids[i];
+	int a[] = new int[n];
 	for(int i=0; i<a.length; i++) a[i] = aids[i];
 	return a;	    
     }
  
-    /** Returns the n article IDs with the highest counts (coaccess
+    /** @param incrementMap The only expected increment values are -1
+     */
+    public boolean topCAAHaveChanged(int n, final CAAList incrementMap) {
+	if (candidates==null) throw new AssertionError("This method can only be called after toCAA(n) has been called");
+	if (n>candidates.length) n=candidates.length;
+	if (n==0) return false;
+	int last=getValue(candidates[0]) + incrementMap.getValue(candidates[0]);
+	for(int i=1; i<n; i++) {
+	    int x= getValue(candidates[i])+incrementMap.getValue(candidates[i]);
+	    if (x>last) return true;
+	    if (x==last && candidates[i]<candidates[i-1])  return true;
+	    last = x;
+	}
+
+	for(int i=n; i<candidates.length; i++) {
+	    int x=getValue(candidates[i])+incrementMap.getValue(candidates[i]);
+	    if (x>last) return true;
+	    if (last>0 && x==last && candidates[i]<candidates[i-1])  return true;
+	}	    
+	return false;
+    }
+
+   /** Returns the n article IDs with the highest counts (coaccess
 	values) in this+incrementMap. 
 	For tie breaking, articles' internal IDs are used.
 	@param incrementMap Values from incrementMap map are to be

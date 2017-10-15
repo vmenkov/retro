@@ -128,6 +128,8 @@ public class Coaccess {
 	    int uid = minusDataVec.elementAt(0).ad.uid;
 	    System.out.println("Testing user " + uid + " ("+uar.userNameTable.nameAt(uid)+")" );
 	
+	    HashSet<Integer> testedAids = new HashSet<Integer>();
+	    
 	    for(MinusData minusSet: minusDataVec) {
 		//int aid = minusSet.ad.aid;
 		boolean visible=false;
@@ -135,13 +137,29 @@ public class Coaccess {
 		    recListCnt++;
 		    CAAHashMap cab = minusSet.get(aid);
 		    CAAList caa = aSet.get(aid);
-		    int[] tops0 = caa.topCAA(n);
-		    int[] tops1 = caa.topCAA(n, cab);
-		    if (!arraysEqual(tops0, tops1)) {
+
+		    if (!testedAids.contains(aid)) {
+			int[] tops0 = caa.topCAA(n);
+			testedAids.add(aid);
+		    }
+
+		    if (caa.topCAAHaveChanged(n, cab)) {
 			changedRecListCnt++;
 			visible = true;
+			System.out.print("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " affected\n");
+		    }
 
-			System.out.print("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " affected. ");
+
+		    /*
+		    if (!visible) {
+			int[] tops0 = caa.topCAA(n);
+
+		    int[] tops1 = caa.topCAA(n, cab);
+		    if (!arraysEqual(tops0, tops1)) {
+			//			changedRecListCnt++;
+			visible = true;
+
+			System.out.print("BUT ON THE OTHER HAND.... Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " affected. ");
 			if (diffIsInsertionsOfOnesOnly(caa, tops1, tops0)) {
 				System.out.println(" Trivial diff (addition of singles)");	
 			} else {
@@ -149,8 +167,10 @@ public class Coaccess {
 			    System.out.println("With action: " + topToString(caa, tops0));
 			    System.out.println("W/o  action: " + topToString(caa, cab, tops1));
 			}
-	
 		    }
+		    }
+		    */
+	
 		}
 		if (visible) visisbleActionCnt++;			
 		actionCnt++;		
@@ -256,7 +276,7 @@ public class Coaccess {
 	for(Integer uid: utSet.keySet()) {
 	    PrivacyLog pLog = utSet.get(uid);
 	    System.out.println("For user " + uid + " ("+uar.userNameTable.nameAt(uid)+"), out of " + pLog.actionCnt + ", visible " + pLog.visisbleActionCnt + 
-			       " (" +pLog.changedRecListCnt+ " actions out of " +pLog.recListCnt);
+			       " (" +pLog.changedRecListCnt+ " rec lists out of " +pLog.recListCnt +")");
 
 	}
 

@@ -31,4 +31,8 @@ interface CAAList {
     /** Increments the values in this row as per incrementMap */
     void add(CAAList incrementMap);   
     Set<Integer> keySet();
+
+
+    boolean topCAAHaveChanged(int n, final CAAList incrementMap);
+	
 }
