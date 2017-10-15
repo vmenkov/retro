@@ -178,7 +178,11 @@ public class Coaccess {
 		if (visible) visisbleActionCnt++;			
 		actionCnt++;		
 	    }
+	    for(Integer aid: testedAids) {
+		((CAAHashMap)aSet.get(aid)).candidates=null; // for GC
+	    }
 	}
+	
     }
 
     static boolean arraysEqual( int[] a, int[] b) {

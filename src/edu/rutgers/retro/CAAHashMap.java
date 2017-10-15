@@ -67,8 +67,10 @@ class CAAHashMap extends HashMap<Integer,MutableInt> implements CAAList {
 	if (entries.length < n) n = entries.length;
 	// How many candidates do we need to save?
         int m = n;
-	int threshold = entries[n-1].val-1;
-	while(m < entries.length && entries[m].val >= threshold) m++;
+	if (m>0) {
+	    int threshold = entries[n-1].val-1;
+	    while(m < entries.length && entries[m].val >= threshold) m++;
+	}
 	candidates=new int[m];
 	for(int i=0;i<candidates.length; i++) candidates[i]=entries[i].key;
 	return Arrays.copyOf(candidates,n);
