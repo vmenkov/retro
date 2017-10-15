@@ -113,6 +113,8 @@ public class Coaccess {
 	}
     }
 
+    static final boolean doubleCheck = true;
+
     /** A PrivacyLog object, associated with one user, keeps track of
 	the potential visibiliy of this user's actions to others. */
     class PrivacyLog {	
@@ -131,7 +133,6 @@ public class Coaccess {
 	    HashSet<Integer> testedAids = new HashSet<Integer>();
 	    
 	    for(MinusData minusSet: minusDataVec) {
-		//int aid = minusSet.ad.aid;
 		boolean visible=false;
 		for(int aid: minusSet.keySet()) {
 		    recListCnt++;
@@ -143,33 +144,34 @@ public class Coaccess {
 			testedAids.add(aid);
 		    }
 
+		    boolean visibleNow = false;
 		    if (caa.topCAAHaveChanged(n, cab)) {
 			changedRecListCnt++;
-			visible = true;
-			System.out.print("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " affected\n");
+			visible =  visibleNow =true;
+			System.out.println("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " affected");
 		    }
 
+		    if (doubleCheck) {
 
-		    /*
-		    if (!visible) {
 			int[] tops0 = caa.topCAA(n);
+			int[] tops1 = caa.topCAA(n, cab);
+			boolean visible2 = !arraysEqual(tops0, tops1);
 
-		    int[] tops1 = caa.topCAA(n, cab);
-		    if (!arraysEqual(tops0, tops1)) {
-			//			changedRecListCnt++;
-			visible = true;
-
-			System.out.print("BUT ON THE OTHER HAND.... Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " affected. ");
-			if (diffIsInsertionsOfOnesOnly(caa, tops1, tops0)) {
+			if (visibleNow && !visible2) {
+			    System.out.println("HOWEVER, Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " don't show change: " +  topToString(caa, tops0));
+			    caa.topCAAHaveChangedDebug(n, cab);
+			} else if (!visibleNow && visible2) {
+			    System.out.print("HOWEVER, Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " show change:");
+			    if (diffIsInsertionsOfOnesOnly(caa, tops1, tops0)) {
 				System.out.println(" Trivial diff (addition of singles)");	
-			} else {
-			    System.out.println();
-			    System.out.println("With action: " + topToString(caa, tops0));
-			    System.out.println("W/o  action: " + topToString(caa, cab, tops1));
+			    } else {
+				System.out.println();
+				System.out.println("With action: " + topToString(caa, tops0));
+				System.out.println("W/o  action: " + topToString(caa, cab, tops1));
+			    }
 			}
 		    }
-		    }
-		    */
+
 	
 		}
 		if (visible) visisbleActionCnt++;			

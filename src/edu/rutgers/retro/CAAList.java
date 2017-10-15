@@ -34,5 +34,6 @@ interface CAAList {
 
 
     boolean topCAAHaveChanged(int n, final CAAList incrementMap);
+    boolean topCAAHaveChangedDebug(int n, final CAAList incrementMap);
 	
 }
