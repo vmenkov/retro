@@ -44,6 +44,12 @@ public class Coaccess {
 	return bSet;
     }
 
+    private int mapSize() {
+	int sum=0;
+	for(CAAList caa: aSet.values()) sum += caa.size();
+	return sum;
+    }
+
     /** Computes the coaccess vectors for specified articles based on
 	the community's entire history (i.e. as the coaccess matrix
 	would stand at the end of the period represented in the history 
@@ -217,7 +223,7 @@ public class Coaccess {
 	@return new start position in the action list
      */
     int coaccessIncrementalStep(int pos0, int t1) throws IOException {
-	System.out.println("Step ending at t=" + t1 +" ("+new Date((long)t1*1000L)+")");
+	System.out.println("Step ending at t=" + t1 +" ("+new Date((long)t1*1000L)+"); CA nnz=" + mapSize());
 	int pos = pos0;
 	HashMap<Integer,CAAHashMap> bSet = makeBlankMap();
 	final int len = (int)uar.actionRAF.lengthObject();
@@ -326,11 +332,14 @@ public class Coaccess {
 	} else {
 	    throw new IllegalArgumentException("Unknown command: " + cmd);
 	}
-	System.out.print("Will test actions of " +usersToTest.size()+" users:");
-	for(int uid: usersToTest) {
-	    System.out.print(" " +uid+ " ("+uar.userNameTable.nameAt(uid)+")");
+	if (usersToTest.size()>0) {
+	    System.out.print("Will test actions of " +usersToTest.size()+" users:");
+	    for(int uid: usersToTest) {
+		System.out.print(" " +uid+ " ("+uar.userNameTable.nameAt(uid)+")");
+	    }
+	    System.out.println();
 	}
-	System.out.println();
+	System.out.print("Will compute coaccess data for " + articles.size() + " articles");
 	Coaccess coa = new Coaccess(uar, articles, usersToTest);
 	if (inc) {
 	    coa.coaccessIncremental();
