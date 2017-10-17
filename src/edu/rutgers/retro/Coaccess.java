@@ -27,7 +27,8 @@ public class Coaccess {
 	usersToTest =  _usersToTest;
 	aSet = new HashMap<Integer,CAAList>();
 	for(Integer aid: articles) {
-	    aSet.put(aid, new CAAHashMap());
+	    //	    aSet.put(aid, new CAAHashMap());
+	    aSet.put(aid, new CAACompact());
 	}
 	utSet = new HashMap<Integer,PrivacyLog>();
 	for(Integer uid: usersToTest) {
@@ -166,7 +167,7 @@ public class Coaccess {
 
 			if (visibleNow && !visible2) {
 			    System.out.println("HOWEVER, Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " don't show change: " +  topToString(caa, tops0));
-			    caa.topCAAHaveChangedDebug(n, cab);
+			    //			    caa.topCAAHaveChangedDebug(n, cab);
 			} else if (!visibleNow && visible2) {
 			    System.out.print("HOWEVER, Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " show change:");
 			    if (diffIsInsertionsOfOnesOnly(caa, tops1, tops0)) {
@@ -185,7 +186,7 @@ public class Coaccess {
 		actionCnt++;		
 	    }
 	    for(Integer aid: testedAids) {
-		((CAAHashMap)aSet.get(aid)).candidates=null; // for GC
+		aSet.get(aid).dropCandidates(); // for GC
 	    }
 	}
 	
@@ -339,7 +340,7 @@ public class Coaccess {
 	    }
 	    System.out.println();
 	}
-	System.out.print("Will compute coaccess data for " + articles.size() + " articles");
+	System.out.println("Will compute coaccess data for " + articles.size() + " articles");
 	Coaccess coa = new Coaccess(uar, articles, usersToTest);
 	if (inc) {
 	    coa.coaccessIncremental();
