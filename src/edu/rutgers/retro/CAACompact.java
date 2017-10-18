@@ -176,7 +176,6 @@ class CAACompact extends CompressedRow
 	for(int i=0;i<keysCnt;i++) {
 	    ME e = new ME(keys[i], values[i]);
 	    e.val += incrementMap.getValue(e.key);
-	    // FIXME
 	    if (e.val!=0) v.add(e);
 	}
 

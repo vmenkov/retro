@@ -171,7 +171,7 @@ public class Coaccess {
 			System.out.println("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " affected");
 		    }
 
-		    doubleCheck = (aid==25294);
+		    //doubleCheck = (aid==25294);
 
 		    if (doubleCheck) {
 			((CAACompact)caa).validate("doubleCheck");
