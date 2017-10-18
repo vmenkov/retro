@@ -19,16 +19,18 @@ public class Coaccess {
     final Vector<Integer> articles;
     /** Users whose actions we want to test for "visibility" to others */
     final Vector<Integer> usersToTest;
+    /** For each user of interest, this HashMap contains the PrivacyLog object,
+	with information about the visibility of this user's actions.
+    */
     final HashMap<Integer,PrivacyLog> utSet;
 
-    Coaccess(UserActionReader _uar, Vector<Integer> _articles, Vector<Integer> _usersToTest) {
+    Coaccess(UserActionReader _uar, Vector<Integer> _articles, Vector<Integer> _usersToTest, boolean useCompact) {
 	uar = _uar;
 	articles = _articles;
 	usersToTest =  _usersToTest;
 	aSet = new HashMap<Integer,CAAList>();
 	for(Integer aid: articles) {
-	    //	    aSet.put(aid, new CAAHashMap());
-	    aSet.put(aid, new CAACompact());
+	    aSet.put(aid, useCompact? new CAACompact():new CAAHashMap());
 	}
 	utSet = new HashMap<Integer,PrivacyLog>();
 	for(Integer uid: usersToTest) {
@@ -104,9 +106,18 @@ public class Coaccess {
     }
     
 
-    /** Information about an action whose privacy impact we want to measure 
+    /** Information about an action whose privacy impact we want to
+	measure.  The main data structure is a HashMap, which, for
+	each potentially affected article, contains a CAAHashMap
+	object that describes the effect of the action to the coaccess
+	matrix row for that article. By analyzing this CAAHashMap
+	(together with the "base" coaccess data for the article in
+	question), we can later find out whether the rec list produced
+	by the system with that article as a stymulus will be affected.
      */
     static class MinusData extends HashMap<Integer,CAAHashMap>  {
+	/** Contains information about the user whose action it is,
+	    and the page the user viewed. */
 	ActionDetails ad;
 	/** This creates a copy of ad, rather than a link to it,
 	    because the caller may reuse the ActionDetails object as
@@ -121,22 +132,23 @@ public class Coaccess {
 	}
     }
 
-    static final boolean doubleCheck = false;
+    static  boolean doubleCheck = false;
 
-    /** A PrivacyLog object, associated with one user, keeps track of
-	the potential visibiliy of this user's actions to others. */
+    /** A PrivacyLog object, associated with one user of interest,
+	keeps track of the potential visibiliy of all actions of this user
+	to other observers. */
     class PrivacyLog {	
 	int actionCnt=0;
 	int visisbleActionCnt=0;
 	int recListCnt =0;
 	int changedRecListCnt =0;
-	/** not yet processed actions from this incremental step */
+	/** Not yet analyzed actions, for this users, from the current incremental step */
 	Vector<MinusData> minusDataVec = new Vector<MinusData>();
 	void analyze() {
 	    final int n=10;
 	    if (minusDataVec.size()==0) return;
 	    int uid = minusDataVec.elementAt(0).ad.uid;
-	    System.out.println("Testing user " + uid + " ("+uar.userNameTable.nameAt(uid)+")" );
+	    System.out.println("Analyzing actions of user " + uid + " ("+uar.userNameTable.nameAt(uid)+")" );
 	
 	    HashSet<Integer> testedAids = new HashSet<Integer>();
 	    
@@ -155,19 +167,21 @@ public class Coaccess {
 		    boolean visibleNow = false;
 		    if (caa.topCAAHaveChanged(n, cab)) {
 			changedRecListCnt++;
-			visible =  visibleNow =true;
+			visible = visibleNow =true;
 			System.out.println("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " affected");
 		    }
 
-		    if (doubleCheck) {
+		    doubleCheck = (aid==25294);
 
+		    if (doubleCheck) {
+			((CAACompact)caa).validate("doubleCheck");
 			int[] tops0 = caa.topCAA(n);
 			int[] tops1 = caa.topCAA(n, cab);
 			boolean visible2 = !arraysEqual(tops0, tops1);
 
 			if (visibleNow && !visible2) {
 			    System.out.println("HOWEVER, Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " don't show change: " +  topToString(caa, tops0));
-			    //			    caa.topCAAHaveChangedDebug(n, cab);
+			    caa.topCAAHaveChangedDebug(n, cab);
 			} else if (!visibleNow && visible2) {
 			    System.out.print("HOWEVER, Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " show change:");
 			    if (diffIsInsertionsOfOnesOnly(caa, tops1, tops0)) {
@@ -209,7 +223,7 @@ public class Coaccess {
 	    if (caa.getValue(b[pb])==1) { pb++; continue;}
 	    return false;
 	}
-	if (pb<b.length) throw new IllegalArgumentException();
+	if (pb<b.length) return false;
 	return true;
     }		    
 
@@ -305,10 +319,14 @@ public class Coaccess {
 
 	boolean inc = ht.getOption("inc", false);
 	boolean testUsers = ht.getOption("testUsers", true);
+	boolean useCompact = ht.getOption("compact", true);
 
 	System.out.println("Incremental mode=" + inc);
 	Vector<Integer> articles = new Vector<Integer>();
 	Vector<Integer> usersToTest = new Vector<Integer>();
+
+	System.out.println("Compact data format=" + useCompact);
+
 	int ja=0;
 	String cmd = argv[ja++];
 	if (cmd.equals("article") || cmd.equals("aid")) {
@@ -341,7 +359,7 @@ public class Coaccess {
 	    System.out.println();
 	}
 	System.out.println("Will compute coaccess data for " + articles.size() + " articles");
-	Coaccess coa = new Coaccess(uar, articles, usersToTest);
+	Coaccess coa = new Coaccess(uar, articles, usersToTest, useCompact);
 	if (inc) {
 	    coa.coaccessIncremental();
 	} else {

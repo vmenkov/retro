@@ -15,6 +15,7 @@ class CAACompact extends CompressedRow
     int onesCnt=0;
     int[] ones = new int[100];
 
+    /** Moves all data from ones[] into the main CRS structure */
     private void pack() {
 	if (onesCnt==0) return;
 	add( new CompressedRow(ones, onesCnt));	
@@ -25,13 +26,15 @@ class CAACompact extends CompressedRow
 	int k = findKey(j);
 	if (k>=0) {
 	    values[k] += inc;
-	    return;
 	} else if (keysCnt<keys.length && j>keys[keysCnt-1]) {
 	    keys[keysCnt]=j;
 	    values[keysCnt]=inc;
 	    keysCnt++;
-	} else if (inc==1) {
+	} else if (inc!=1) {
 	    throw new IllegalArgumentException("addValue() only supported with inc=1");
+	} else {
+	    if (onesCnt == ones.length) pack();
+	    ones[onesCnt++] = j;
 	}
     }
 
@@ -60,6 +63,7 @@ class CAACompact extends CompressedRow
 
     public int size() { return keysCnt + onesCnt; }
 
+
     /** Returns the n article IDs with the highest counts (coaccess
 	values). For tie breaking, articles' internal IDs are used. 
     */	
@@ -67,10 +71,7 @@ class CAACompact extends CompressedRow
 	if (n==0) return new int[0];
 	pack();
 
-	CAAHashMap.ME[]  entries = new CAAHashMap.ME[size()];
-	for(int i=0;i<keysCnt;i++) {
-	    entries[i] = new CAAHashMap.ME(keys[i], values[i]);
-	}
+	ME[] entries = toME();
 
   	Arrays.sort(entries);
 	if (entries.length < n) n = entries.length;
@@ -81,7 +82,13 @@ class CAACompact extends CompressedRow
 	    while(m < entries.length && entries[m].val >= threshold) m++;
 	}
 	candidates=new int[m];
-	for(int i=0;i<candidates.length; i++) candidates[i]=entries[i].key;
+	for(int i=0;i<candidates.length; i++) {
+	    candidates[i]=entries[i].key;
+	    //if (i>0 && entries[i].val >entries[i-1].val) throw new AssertionError("After sorting, values are not in descending order! i=" +i);
+	    //if(entries[i].val==0) throw new AssertionError("After sorting, zero value found! i=" +i);
+	    //int gv=getValue(entries[i].key);
+	    //if (entries[i].val != gv)  throw new AssertionError("After sorting, content mismatch for i=" +i +", me=" + entries[i] +", getVal="+gv);
+	}
 	return Arrays.copyOf(candidates,n);
     }
 
@@ -114,6 +121,40 @@ class CAACompact extends CompressedRow
 	return false;
     }
 
+    public boolean topCAAHaveChangedDebug(int n, final CAAList incrementMap) {
+	if (candidates==null) throw new AssertionError("This method can only be called after toCAA(n) has been called");
+	pack();
+	if (n>candidates.length) n=candidates.length;
+	if (n==0) {
+	    System.out.println("DEBUG: n=0");
+	    return false;
+	}
+	int last=0, ilast=0;
+	for(int i=0; i<candidates.length; i++) {
+	    int x= getValue(candidates[i])+incrementMap.getValue(candidates[i]);
+	    if (i<n && x==0) {
+		System.out.println("DEBUG: x[" + i + ":"+candidates[i]+"]=0");
+		return true;
+	    }
+	    if (i>0) {
+		if (x>last) {
+		    System.out.println("DEBUG: x[" + i + ":"+candidates[i]+"]=" +x+ " > xlast["+ilast+":"+candidates[ilast]+"]=" +last);
+		    return true;
+		}
+		if (x==last && candidates[i]<candidates[ilast])  {
+		    System.out.println("DEBUG: x[" + i +  ":"+candidates[i]+"]=" +x+ "=xlast["+ilast+":"+candidates[ilast]+"]");
+		    return true;
+		}
+	    }
+	    if (i<n) {
+		last = x;
+		ilast = i;
+	    }
+	}
+	System.out.println("DEBUG: NO CHANGE");
+	return false;
+    }
+
   
    /** Returns the n article IDs that have the highest counts
 	(coaccess values) in this+incrementMap. For tie breaking,
@@ -131,20 +172,29 @@ class CAACompact extends CompressedRow
 	CAAHashMap incrementMap = (CAAHashMap)_incrementMap;
 	if (n==0) return new int[0];
 	
-	Vector<CAAHashMap.ME> v = new Vector<CAAHashMap.ME>();
+	Vector<ME> v = new Vector<ME>();
 	for(int i=0;i<keysCnt;i++) {
-	    CAAHashMap.ME e = new CAAHashMap.ME(keys[i], values[i]);
+	    ME e = new ME(keys[i], values[i]);
 	    e.val += incrementMap.getValue(e.key);
-	    v.add(e);
+	    // FIXME
+	    if (e.val!=0) v.add(e);
 	}
 
 	for(Map.Entry<Integer,MutableInt> e: incrementMap.entrySet()) {
-	    if (findKey(e.getKey())<0) v.add(new CAAHashMap.ME(e));
+	    if (findKey(e.getKey())<0) v.add(new ME(e));
 	}
 
-	CAAHashMap.ME[] entries = (CAAHashMap.ME[])v.toArray(new CAAHashMap.ME[0]);
+	ME[] entries = (ME[])v.toArray(new ME[0]);
   	Arrays.sort(entries);
 	if (entries.length < n) n = entries.length;
+
+	/*
+	for(int i=0;i<entries.length; i++) {
+	    if (i>0 && entries[i].val >entries[i-1].val) throw new AssertionError("T2: After sorting, values are not in descending order! i=" +i);
+	    if(entries[i].val==0) throw new AssertionError("T2: After sorting, zero value found! i=" +i);
+	}
+	*/
+
 	int a[] = new int[n];
 	for(int i=0; i<n; i++) a[i] = entries[i].key;
 	return a;	       

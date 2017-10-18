@@ -33,38 +33,6 @@ class CAAHashMap extends HashMap<Integer,MutableInt> implements CAAList {
      */
     int[] candidates=null;
 
-    /** An auxiliary class used for sorting coaccess values. */
-    static class ME implements Comparable { 
-	int key, val;
-	ME(int _key, int _val) {
-	    key=_key;
-	    val=_val;
-	}
-	ME( Map.Entry<Integer,MutableInt> x) {
-	    this(x.getKey(), x.getValue().intValue());
-	}
-	/** Descendant by value; tie-breaking: ascendant by key */
-	public int compareTo(Object _o2) {
-	    if (!(_o2 instanceof ME)) throw new IllegalArgumentException();
-	    ME o2 = (ME)_o2;
-	    int d = o2.val - val;
-	    if (d==0) d=key-o2.key;
-	    return d;		
-	}
-    }
-
-    static class MEByKey extends ME {
-	MEByKey( Map.Entry<Integer,MutableInt> x) {
-	    super(x);
-	}
-	/** ascendant by key */
-	public int compareTo(Object _o2) {
-	    if (!(_o2 instanceof MEByKey)) throw new IllegalArgumentException();
-	    MEByKey o2 = (MEByKey)_o2;
-	    return key-o2.key;	
-	}	
-    }
-
     /** Returns the n article IDs with the highest counts (coaccess
 	values). For tie breaking, articles' internal IDs are used. 
     */	
@@ -239,5 +207,3 @@ class CAAHashMap extends HashMap<Integer,MutableInt> implements CAAList {
 
 
 }
-
-
