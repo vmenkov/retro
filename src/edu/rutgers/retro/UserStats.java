@@ -65,6 +65,7 @@ public class UserStats {
 	    robot-like, and his activity should not be taken into account 
 	    anymore */
 	boolean excludeFromNowOn=false;
+	/** Criteria for excluding overly active users */
 	final static int[] windowSizes = {300, 24*3600};
 	final static int[] maxCntWindow = {20, 60};
 	HistoryWindow historyWindow[] = new HistoryWindow[windowSizes.length];

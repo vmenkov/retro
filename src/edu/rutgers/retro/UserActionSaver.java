@@ -7,7 +7,9 @@ import java.text.*;
 import org.json.*;
 
 /** An auxiliary class used to save the information of users' action history
-    to a random-access file */
+    to a random-access file. This is part of the process of building the 
+    action index. The main class is UserStats.
+*/
 class UserActionSaver {	
 
     int dupCnt;
