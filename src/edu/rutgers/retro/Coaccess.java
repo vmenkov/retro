@@ -23,8 +23,12 @@ public class Coaccess {
 	with information about the visibility of this user's actions.
     */
     final HashMap<Integer,PrivacyLog> utSet;
+    /** The number of top articles that are displayed as rec list */
+    final int n;
 
-    Coaccess(UserActionReader _uar, Vector<Integer> _articles, Vector<Integer> _usersToTest, boolean useCompact) {
+       
+    Coaccess(UserActionReader _uar, Vector<Integer> _articles, Vector<Integer> _usersToTest, boolean useCompact, int _n) {
+	n = _n;
 	uar = _uar;
 	articles = _articles;
 	usersToTest =  _usersToTest;
@@ -81,7 +85,6 @@ public class Coaccess {
 
     /** Prints the top coaccess values for all articles of interest. */
     void reportTop()     {
-	final int n = 10;
 	for(int aid: articles) {
 	    CAAList caa = aSet.get(aid);
 	    int[] tops = caa.topCAA(n);
@@ -137,7 +140,9 @@ public class Coaccess {
     /** A PrivacyLog object, associated with one user of interest,
 	keeps track of the potential visibiliy of all actions of this user
 	to other observers. */
-    class PrivacyLog {	
+    class PrivacyLog {
+	/** The number of top articles that are displayed as rec list */
+	//	final int n=10;
 	int actionCnt=0;
 	int visisbleActionCnt=0;
 	int recListCnt =0;
@@ -145,7 +150,6 @@ public class Coaccess {
 	/** Not yet analyzed actions, for this users, from the current incremental step */
 	Vector<MinusData> minusDataVec = new Vector<MinusData>();
 	void analyze() {
-	    final int n=10;
 	    if (minusDataVec.size()==0) return;
 	    int uid = minusDataVec.elementAt(0).ad.uid;
 	    System.out.println("Analyzing actions of user " + uid + " ("+uar.userNameTable.nameAt(uid)+")" );
@@ -288,14 +292,16 @@ public class Coaccess {
 	return pos;
     }
 
-    void coaccessIncremental() throws IOException {
+    /**
+       @param stepSec in seconds
+     */
+    void coaccessIncremental(int stepSec) throws IOException {
 	int pos = 0;
-	final int step = 3600*24;
-	final int utc0 = (uar.actionRAF.read(new ActionDetails(),pos).utc/step) * step;
+	final int utc0 = (uar.actionRAF.read(new ActionDetails(),pos).utc/stepSec) * stepSec;
 	final int len = (int)uar.actionRAF.lengthObject();
 	int utc1 = utc0;
 	while(pos<len) {
-	    utc1 += step;
+	    utc1 += stepSec;
 	    pos = coaccessIncrementalStep(pos, utc1);	    
 	}
 	reportTop();
@@ -320,8 +326,13 @@ public class Coaccess {
 	boolean inc = ht.getOption("inc", false);
 	boolean testUsers = ht.getOption("testUsers", true);
 	boolean useCompact = ht.getOption("compact", true);
+	double hours = ht.getOption("step", 24);
 
-	System.out.println("Incremental mode=" + inc);
+	// The number of top articles that are displayed as rec list 
+	final int n = ht.getOption("n", 10);
+	
+	System.out.println("Incremental mode=" + inc +
+			   (inc? ", with step=" + hours + " hrs": ""));
 	Vector<Integer> articles = new Vector<Integer>();
 	Vector<Integer> usersToTest = new Vector<Integer>();
 
@@ -359,9 +370,10 @@ public class Coaccess {
 	    System.out.println();
 	}
 	System.out.println("Will compute coaccess data for " + articles.size() + " articles");
-	Coaccess coa = new Coaccess(uar, articles, usersToTest, useCompact);
+	Coaccess coa = new Coaccess(uar, articles, usersToTest, useCompact, n);
 	if (inc) {
-	    coa.coaccessIncremental();
+	    final int stepSec = (int)(3600*hours);
+	    coa.coaccessIncremental(stepSec);
 	} else {
 	    coa.coaccessFinal();
 	}
