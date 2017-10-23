@@ -60,6 +60,8 @@ class CAACompact extends CompressedRow
 	increment).
      */
     int[] candidates=null;
+    /** The candidate array should include all indexes whose values are &ge; threshold */
+    int threshold;
 
     public int size() { return keysCnt + onesCnt; }
 
@@ -69,17 +71,24 @@ class CAACompact extends CompressedRow
     */	
     public int[] topCAA(int n) {
 	if (n==0) return new int[0];
+	final int n0 = n;
 	pack();
 
-	ME[] entries = toME();
-
-  	Arrays.sort(entries);
-	if (entries.length < n) n = entries.length;
-	// How many candidates do we need to save?
-        int m = n;
-	if (m>0) {
-	    int threshold = entries[n-1].val-1;
-	    while(m < entries.length && entries[m].val >= threshold) m++;
+	ME[]  entries = new ME[size()];
+	int ecnt = 0;
+	for(int i=0;i<keysCnt;i++) {
+	    //if (values[i]==0) throw new AssertionError("Zero found in CRS, i=" + i+", key=" + keys[i]);
+	    if (values[i] >= threshold) entries[ecnt++] = new ME(keys[i], values[i]);
+	}
+  	Arrays.sort(entries, 0, ecnt);
+	int m;
+	if (ecnt <= n) { // save them all
+	    m = n = ecnt;
+	    threshold = 0;
+	} else {   // How many candidates do we need to save?
+	    m = n;
+	    threshold = entries[n-1].val-1;
+	    while(m < ecnt && entries[m].val >= threshold) m++;
 	}
 	candidates=new int[m];
 	for(int i=0;i<candidates.length; i++) {

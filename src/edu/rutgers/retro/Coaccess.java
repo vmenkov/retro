@@ -203,9 +203,11 @@ public class Coaccess {
 		if (visible) visisbleActionCnt++;			
 		actionCnt++;		
 	    }
+	    /*
 	    for(Integer aid: testedAids) {
 		aSet.get(aid).dropCandidates(); // for GC
 	    }
+	    */
 	}
 	
     }
