@@ -54,14 +54,15 @@ class CAACompact extends CompressedRow
 	return getValue(j1) - getValue(j2);
     }
     
-    /** This array may be created during the most recent topCAA(n) call;
-	it will contain the top n values, as well as those that are within 
-	1 from it (i.e. those that could be pushed into the top n by a small
-	increment).
+    /** This array may be created during the most recent topCAA(n)
+	call; it will contain the indexes for the top n values, as
+	well as those whose values are within 1 from those in the top n. 
+	When we study the effect of a small (up to 1) decrement on the top
+	values, it is sufficient to compare the candidates.
      */
     int[] candidates=null;
     /** The candidate array should include all indexes whose values are &ge; threshold */
-    int threshold;
+    int threshold=0;
 
     public int size() { return keysCnt + onesCnt; }
 

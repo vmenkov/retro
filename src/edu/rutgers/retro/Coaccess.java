@@ -318,6 +318,84 @@ public class Coaccess {
 
     }
 
+    /** Emulates a recommender with immediately-updated coaccess data */
+    void coaccessImmediate() throws IOException {
+	final int stepSec = 3600 * 24 * 7;
+	int nextPrintUtc = (uar.actionRAF.read(new ActionDetails(),0).utc/stepSec) * stepSec;
+
+	System.out.println("Immediate-update recommender starts; CA nnz=" + mapSize());
+	HashMap<Integer,CAAHashMap> bSet = makeBlankMap();
+	final int len = (int)uar.actionRAF.lengthObject();
+	ActionDetails a = new ActionDetails();
+	for(PrivacyLog pLog: utSet.values()) pLog.minusDataVec.clear();
+
+	for(int pos = 0; pos<len; pos++) {
+
+	    uar.actionRAF.read(a,pos); 
+	    UserActionReader.UserEntry user = uar.users[a.uid];
+	    CAAList caa = bSet.get(a.aid);
+
+	    boolean doMinus = utSet.containsKey(a.uid);
+	    MinusData minusSet = null;
+	    if (doMinus) minusSet = new MinusData(a);
+			
+	    if (user.ofInterest!=null) {  // update CAA for the articles of interest seen earlier by this user
+		for(int j: user.ofInterest) {
+		    bSet.get(j).addValue(a.aid, 1);
+		    if (doMinus) minusSet.add(j,a.aid, -1);
+		}
+	    }
+
+	    if (caa!=null) { // this is an article of interest
+		if (user.ofInterest==null) user.ofInterest = new Vector<Integer>(2,4);
+		user.ofInterest.add(a.aid);
+
+		CAAHashMap minusCaa = null;
+		if (doMinus) minusSet.put(a.aid, minusCaa=new CAAHashMap());
+		ActionDetails[] as = uar.earlyActionsForUser(a.uid);
+		for(ActionDetails y: as) {	    
+		    caa.addValue(y.aid, 1);
+		    if (doMinus) minusCaa.addValue(y.aid, -1);
+		}
+	    }
+	    user.readCnt++;
+	    PrivacyLog pLog = doMinus? utSet.get(a.uid) : null;
+	    
+	    for(Integer aid: bSet.keySet()) { 
+		aSet.get(aid).add(bSet.get(aid));
+	    }
+
+	    if (doMinus) {
+		pLog.minusDataVec.add(minusSet);
+		pLog.analyze();
+		pLog.minusDataVec.clear();
+	    }
+
+	    if (a.utc > nextPrintUtc) {
+		System.out.println("At t=" + a.utc +" ("+new Date((long)a.utc*1000L)+"); CA nnz=" + mapSize());
+
+		nextPrintUtc += stepSec;
+	    }
+
+
+
+	}
+
+	reportTop();
+
+	System.out.println("Privacy report");
+	for(Integer uid: utSet.keySet()) {
+	    PrivacyLog pLog = utSet.get(uid);
+	    System.out.println("For user " + uid + " ("+uar.userNameTable.nameAt(uid)+"), out of " + pLog.actionCnt + ", visible " + pLog.visisbleActionCnt + 
+			       " (" +pLog.changedRecListCnt+ " rec lists out of " +pLog.recListCnt +")");
+
+	}
+
+
+    }
+    
+
+
     static public void main(String argv[]) throws IOException {
 	ParseConfig ht = new ParseConfig();
 
@@ -374,8 +452,12 @@ public class Coaccess {
 	System.out.println("Will compute coaccess data for " + articles.size() + " articles");
 	Coaccess coa = new Coaccess(uar, articles, usersToTest, useCompact, n);
 	if (inc) {
-	    final int stepSec = (int)(3600*hours);
-	    coa.coaccessIncremental(stepSec);
+	    if (hours==0) {
+		coa.coaccessImmediate();
+	    } else {
+		final int stepSec = (int)(3600*hours);
+		coa.coaccessIncremental(stepSec);
+	    }
 	} else {
 	    coa.coaccessFinal();
 	}
