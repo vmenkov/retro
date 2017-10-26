@@ -6,29 +6,34 @@ import java.util.*;
 import org.apache.commons.lang.mutable.*;
 
 /** Sparse implementation of CAAList: storing one row of the coaccess matrix */
-class CAACompact extends CompressedRow
-//extends HashMap<Integer,MutableInt> 
-    implements CAAList {
+class CAACompact extends CompressedRow   implements CAAList {
     
     CAACompact() { super(0); }
 
     int onesCnt=0;
     int[] ones = new int[100];
 
-    /** Moves all data from ones[] into the main CRS structure */
+    /** Moves all data from ones[] into the main CRS structure. Also
+	tests if any of the newly added values if high enough to
+	potentially enter the candidate array. */
     private void pack() {
 	if (onesCnt==0) return;
-	add( new CompressedRow(ones, onesCnt));	
+	CompressedRow x =  new CompressedRow(ones, onesCnt);	
+	add(x);	
 	onesCnt=0;
+	if (candidates!=null && x.reachesThreshold(threshold)) dropCandidates();
     }
 
     public void addValue(int j, int inc) {
 	int k = findKey(j);
 	if (k>=0) {
+	    int val0 = values[k];
 	    values[k] += inc;
+	    if (val0 < threshold && values[k]>=threshold) dropCandidates();
 	} else if (keysCnt<keys.length && j>keys[keysCnt-1]) {
 	    keys[keysCnt]=j;
 	    values[keysCnt]=inc;
+	    if (values[k]>=threshold) dropCandidates();
 	    keysCnt++;
 	} else if (inc!=1) {
 	    throw new IllegalArgumentException("addValue() only supported with inc=1");
@@ -73,15 +78,26 @@ class CAACompact extends CompressedRow
     public int[] topCAA(int n) {
 	if (n==0) return new int[0];
 	final int n0 = n;
-	pack();
 
-	ME[]  entries = new ME[size()];
+	if (candidates!=null &&  maxValueInOnes()>=threshold) dropCandidates();
+
+	ME[] entries;
 	int ecnt = 0;
-	for(int i=0;i<keysCnt;i++) {
-	    //if (values[i]==0) throw new AssertionError("Zero found in CRS, i=" + i+", key=" + keys[i]);
-	    if (values[i] >= threshold) entries[ecnt++] = new ME(keys[i], values[i]);
+	if (candidates==null) {
+	    pack();
+	    entries = new ME[size()];
+	    for(int i=0;i<keysCnt;i++) {
+		//if (values[i]==0) throw new AssertionError("Zero found in CRS, i=" + i+", key=" + keys[i]);
+		if (values[i] >= threshold) entries[ecnt++] = new ME(keys[i], values[i]);
+	    }
+	} else {
+	    entries = new ME[candidates.length];
+	    for(int i=0; i<candidates.length; i++) {
+		int key = candidates[i];
+		entries[ecnt++] = new ME(key, getValue(key));
+	    }
 	}
-  	Arrays.sort(entries, 0, ecnt);
+	Arrays.sort(entries, 0, ecnt);
 	int m;
 	if (ecnt <= n) { // save them all
 	    m = n = ecnt;
@@ -91,6 +107,7 @@ class CAACompact extends CompressedRow
 	    threshold = entries[n-1].val-1;
 	    while(m < ecnt && entries[m].val >= threshold) m++;
 	}
+	
 	candidates=new int[m];
 	for(int i=0;i<candidates.length; i++) {
 	    candidates[i]=entries[i].key;
@@ -108,6 +125,7 @@ class CAACompact extends CompressedRow
 	NOT including a particular action which is included in this 
 	row), which means that the modified row will have fewer non-zeros,
 	and smaller positive values of non-zeros, than the non-modified row.
+
 	@param incrementMap The only expected increment values are -1
      */
     public boolean topCAAHaveChanged(int n, final CAAList incrementMap) {
@@ -226,10 +244,27 @@ class CAACompact extends CompressedRow
 	return s;
     }
 
+    /** Drops the candidates[] array, to indicate that the set of "candidate 
+	top values" may have changed, and needs to be recomputed */
     public void dropCandidates() {
 	candidates=null; // for GC
     }
 
+    /** The C-norm of a vector represented by ones[] */
+    int maxValueInOnes() {
+	Arrays.sort(ones);
+	int max = 1;
+	int startJ = 0;
+	for(int j=0; j<onesCnt;j++) {
+	    if (ones[j] == startJ) {
+		int m = j-startJ+1;
+		if (m > max) max = m;
+	    } else {
+		startJ = j;
+	    }
+	}
+	return max;
+    }
 
 }
 

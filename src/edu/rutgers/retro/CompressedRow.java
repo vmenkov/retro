@@ -28,6 +28,9 @@ class CompressedRow  {
 	keysCnt=0;
     }
 
+    /** Creates a CompressedRow object from an array of indexes (with the 
+	implied value of 1 for each one).
+     */
     CompressedRow(int [] ones, int onesCnt) {
 	this(onesCnt);
 	Arrays.sort(ones);
@@ -117,6 +120,16 @@ class CompressedRow  {
 	    entries[i] = new ME(keys[i], values[i]);
 	}
 	return entries;
+    }
+
+    /** Does this vector have a component with a value at or above
+	the specified threshold?
+    */
+    boolean reachesThreshold(int threshold) {
+	for(int i=0;i<keysCnt;i++) {
+	    if (values[i]>=threshold) return true;
+	}
+	return false;
     }
 
 }
