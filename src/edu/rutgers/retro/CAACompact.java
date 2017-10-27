@@ -122,7 +122,7 @@ class CAACompact extends CompressedRow   implements CAAList {
 	return Arrays.copyOf(candidates,n);
     }
 
-    /** Comparese the list of top elements of this coaccess matrix row
+    /** Comparese the list of top n elements of this coaccess matrix row
 	with the list that would obtain if  incrementMap were to be 
 	added to it. incrementMap consists of negative value (representing
 	NOT including a particular action which is included in this 
@@ -130,26 +130,28 @@ class CAACompact extends CompressedRow   implements CAAList {
 	and smaller positive values of non-zeros, than the non-modified row.
 
 	@param incrementMap The only expected increment values are -1
+	@return the (zero-based) position of the first changed element,
+	or -1 if there are no changes within the top 10 elements.
      */
-    public boolean topCAAHaveChanged(int n, final CAAList incrementMap) {
+    public int topCAAHaveChanged(int n, final CAAList incrementMap) {
 	if (candidates==null) throw new AssertionError("This method can only be called after toCAA(n) has been called");
 	pack();
 	if (n>candidates.length) n=candidates.length;
-	if (n==0) return false;
+	if (n==0) return -1;
 	int last=0, ilast=0;
 	for(int i=0; i<candidates.length; i++) {
 	    int x= getValue(candidates[i])+incrementMap.getValue(candidates[i]);
-	    if (i<n && x==0) return true;
+	    if (i<n && x==0) return i;
 	    if (i>0) {
-		if (x>last) return true;
-		if (x==last && candidates[i]<candidates[ilast])  return true;
+		if (x>last) return ilast;
+		if (x==last && candidates[i]<candidates[ilast])  return ilast;
 	    }
 	    if (i<n) {
 		last = x;
 		ilast = i;
 	    }
 	}
-	return false;
+	return -1;
     }
 
     public boolean topCAAHaveChangedDebug(int n, final CAAList incrementMap) {

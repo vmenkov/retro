@@ -156,9 +156,13 @@ public class Coaccess {
 	
 	    HashSet<Integer> testedAids = new HashSet<Integer>();
 	    
-	    for(MinusData minusSet: minusDataVec) {
+	    for(MinusData minusSet: minusDataVec) { // for each recent action of this user
 		boolean visible=false;
-		for(int aid: minusSet.keySet()) {
+		int actionAid = minusSet.ad.aid;
+		if (minusSet.ad.uid != uid) throw new AssertionError();
+		Vector<int[]> visibleFrom = new Vector<int[]>();
+		Vector<Integer> affected = new Vector<Integer>();
+		for(int aid: minusSet.keySet()) { // for each article whose coaccess vector this action has affected
 		    recListCnt++;
 		    CAAHashMap cab = minusSet.get(aid);
 		    CAAList caa = aSet.get(aid);
@@ -169,10 +173,12 @@ public class Coaccess {
 		    }
 
 		    boolean visibleNow = false;
-		    if (caa.topCAAHaveChanged(n, cab)) {
+		    int changePos = caa.topCAAHaveChanged(n, cab);
+		    if (changePos>=0) {
 			changedRecListCnt++;
 			visible = visibleNow =true;
-			System.out.println("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " affected");
+			//System.out.println("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " affected")
+			visibleFrom.add(new int[]{aid,changePos});
 		    }
 
 		    //doubleCheck = (aid==25294);
@@ -200,7 +206,20 @@ public class Coaccess {
 
 	
 		}
-		if (visible) visisbleActionCnt++;			
+
+		
+		if (visible) {
+		    visisbleActionCnt++;			
+		    System.out.print("U["+uid+"]="+uar.userNameTable.nameAt(uid)+" viewing of A["+actionAid+"]=" + uar.aidNameTable.nameAt(actionAid) + " is seen from");
+		    
+		    for(int[] x: visibleFrom) {
+			int aid=x[0];
+			int rank=x[1];
+			System.out.print(" A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + ":" + rank);
+		    }
+		    System.out.println();
+		}
+
 		actionCnt++;		
 	    }
 	    /* 
