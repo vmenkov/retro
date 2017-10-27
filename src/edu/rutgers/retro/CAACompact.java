@@ -24,6 +24,9 @@ class CAACompact extends CompressedRow   implements CAAList {
 	if (candidates!=null && x.reachesThreshold(threshold)) dropCandidates();
     }
 
+    /** Adds a single-component vector (x[j]=inc) to this vector. Either 
+	increments an existing component in CRS, or adds an element to ones[].
+     */
     public void addValue(int j, int inc) {
 	int k = findKey(j);
 	if (k>=0) {
@@ -233,12 +236,17 @@ class CAACompact extends CompressedRow   implements CAAList {
 	if (!(_incrementMap instanceof CAAHashMap)) throw new IllegalArgumentException();
 	CAAHashMap incrementMap = (CAAHashMap)_incrementMap;
 	pack();
-	add(new CompressedRow(incrementMap));
+	// FIXME: need threshold management
+	if (candidates==null) 	add(new CompressedRow(incrementMap));
+	else {
+	    boolean drop= add1(new CompressedRow(incrementMap),false,threshold);
+	    if (drop) dropCandidates();
+	}
     }
 
     public Set<Integer> keySet() {
 	pack();
-	TreeSet<Integer> s=	new TreeSet<Integer>();
+	TreeSet<Integer> s=new TreeSet<Integer>();
 	for(int key: keys) s.add(key);
 	for(int key: ones) s.add(key);
 	return s;

@@ -73,16 +73,19 @@ class CompressedRow  {
     }
 
 
-    /** this += x */
+    /** this += x.
+	// FIXME: need threshold management
+     */
     void add(CompressedRow x) {
-	int[] newKeys = new int[keysCnt + x.keysCnt];
+	//return add1(x, true, 0);
+  	int[] newKeys = new int[keysCnt + x.keysCnt];
 	int[] newValues = new int[keysCnt + x.keysCnt];
 	int ia=0, ib=0, ic=0;
 	while(ia<keysCnt && ib<x.keysCnt) {
 	    if ( keys[ia]< x.keys[ib] ) {
 		newKeys[ic] = keys[ia];
 		newValues[ic++] = values[ia++];
-	    } else if ( keys[ia] >  x.keys[ib] ) {
+	    } else if ( keys[ia] >  x.keys[ib] ) {		
 		newKeys[ic] = x.keys[ib];
 		newValues[ic++] = x.values[ib++];
 	    } else { // equality
@@ -101,7 +104,45 @@ class CompressedRow  {
 	keysCnt=ic;
 	keys = newKeys;
 	values=newValues;
-	validate("pack()");
+	//validate("pack()");
+    }
+
+    /** Also checked if the vector has changed so much that it may affect
+	the candidate list */
+    boolean add1(CompressedRow x, boolean drop, int threshold) {
+	int[] newKeys = new int[keysCnt + x.keysCnt];
+	int[] newValues = new int[keysCnt + x.keysCnt];
+	int ia=0, ib=0, ic=0;
+	while(ia<keysCnt && ib<x.keysCnt) {
+	    if ( keys[ia]< x.keys[ib] ) {
+		newKeys[ic] = keys[ia];
+		newValues[ic++] = values[ia++];
+	    } else if ( keys[ia] >  x.keys[ib] ) {		
+		newKeys[ic] = x.keys[ib];
+		drop = drop || (x.values[ib] >= threshold);
+		newValues[ic++] = x.values[ib++];
+	    } else { // equality
+		newKeys[ic] = keys[ia];
+		int val0 = values[ia];
+		int val1 = values[ia++] + x.values[ib++];
+		newValues[ic++] = val1;
+		drop = drop || (val0 < threshold) && (val1 >= threshold);
+	    }
+	}
+	while(ia<keysCnt) {
+	    newKeys[ic] = keys[ia];
+	    newValues[ic++] = values[ia++];
+	}
+	while( ib<x.keysCnt) {
+	    newKeys[ic] = x.keys[ib];
+	    drop = drop || (x.values[ib] >= threshold);
+	    newValues[ic++] = x.values[ib++];
+	}
+	keysCnt=ic;
+	keys = newKeys;
+	values=newValues;
+	//validate("pack()");
+	return drop;
     }
 
     int findKey(int key) {
