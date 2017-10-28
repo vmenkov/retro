@@ -231,7 +231,7 @@ class CAACompact extends CompressedRow   implements CAAList {
 
 	/*
 	for(int i=0;i<entries.length; i++) {
-	    if (i>0 && entries[i].val >entries[i-1].val) throw new AssertionError("T2: After sorting, values are not in descending order! i=" +i);
+	    if (i>0 && entries[i].val >entries[i-1].val) throw new AssertionError("T2: After s<orting, values are not in descending order! i=" +i);
 	    if(entries[i].val==0) throw new AssertionError("T2: After sorting, zero value found! i=" +i);
 	}
 	*/

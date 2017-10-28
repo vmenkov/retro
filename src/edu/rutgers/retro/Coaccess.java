@@ -296,13 +296,17 @@ public class Coaccess {
 	    if (doMinus) minusSet = new MinusData(a);
 			
 	    if (user.ofInterest!=null) {  // update CAA for the articles of interest seen earlier by this user
+		Profiler.profiler.push(Profiler.Code.COA_update_coa1);
+
 		for(int j: user.ofInterest) {
 		    bSet.get(j).addValue(a.aid, 1);
 		    if (doMinus) minusSet.add(j,a.aid, -1);
 		}
+		Profiler.profiler.pop(Profiler.Code.COA_update_coa1);
 	    }
 
 	    if (caa!=null) { // this is an article of interest
+		Profiler.profiler.push(Profiler.Code.COA_update_coa2);
 		if (user.ofInterest==null) user.ofInterest = new Vector<Integer>(2,4);
 		user.ofInterest.add(a.aid);
 
@@ -313,14 +317,17 @@ public class Coaccess {
 		    caa.addValue(y.aid, 1);
 		    if (doMinus) minusCaa.addValue(y.aid, -1);
 		}
+		Profiler.profiler.pop(Profiler.Code.COA_update_coa2);
 	    }
 	    user.readCnt++;
 	    if (doMinus) utSet.get(a.uid).minusDataVec.add(minusSet);
 
 	}
+	Profiler.profiler.push(Profiler.Code.COA_update_coa3);
 	for(Integer aid: bSet.keySet()) { 
 	    aSet.get(aid).add(bSet.get(aid));
 	}
+	Profiler.profiler.pop(Profiler.Code.COA_update_coa3);
 
 	for(PrivacyLog pLog: utSet.values()) pLog.analyze();
 
@@ -452,6 +459,7 @@ public class Coaccess {
 
 	System.out.println("Compact data format=" + useCompact);
 
+       
 	int ja=0;
 	String cmd = argv[ja++];
 	if (cmd.equals("article") || cmd.equals("aid")) {
@@ -485,6 +493,7 @@ public class Coaccess {
 	}
 	System.out.println("Will compute coaccess data for " + articles.size() + " articles");
 	Coaccess coa = new Coaccess(uar, articles, usersToTest, useCompact, n);
+	Profiler.profiler.push(Profiler.Code.OTHER);
 	if (inc) {
 	    if (hours==0) {
 		coa.coaccessImmediate();
@@ -495,6 +504,7 @@ public class Coaccess {
 	} else {
 	    coa.coaccessFinal();
 	}
+	Profiler.profiler.pop(Profiler.Code.OTHER);
 
 	System.out.println("===Profiler report (wall clock time)===");
 	System.out.println(     Profiler.profiler.report());
