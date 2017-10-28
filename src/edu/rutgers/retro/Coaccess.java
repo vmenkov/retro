@@ -135,7 +135,7 @@ public class Coaccess {
 	}
     }
 
-    static  boolean doubleCheck = false;
+    static final boolean doubleCheck = false;
 
     /** A PrivacyLog object, associated with one user of interest,
 	keeps track of the potential visibiliy of all actions of this user
@@ -151,18 +151,27 @@ public class Coaccess {
 	Vector<MinusData> minusDataVec = new Vector<MinusData>();
 	void analyze() {
 	    if (minusDataVec.size()==0) return;
+	    Profiler.profiler.push(Profiler.Code.COA_analyze);
+	    Profiler.profiler.push(Profiler.Code.COA_analyze_0);
+
 	    int uid = minusDataVec.elementAt(0).ad.uid;
 	    System.out.println("Analyzing actions of user " + uid + " ("+uar.userNameTable.nameAt(uid)+")" );
 	
+	    // the set of articles for which we have updated the
+	    // end-of-step topCAA
 	    HashSet<Integer> testedAids = new HashSet<Integer>();
+	    Profiler.profiler.pop(Profiler.Code.COA_analyze_0);
 	    
 	    for(MinusData minusSet: minusDataVec) { // for each recent action of this user
+		Profiler.profiler.push(Profiler.Code.COA_analyze_1);
 		boolean visible=false;
 		int actionAid = minusSet.ad.aid;
 		if (minusSet.ad.uid != uid) throw new AssertionError();
 		Vector<int[]> visibleFrom = new Vector<int[]>();
 		Vector<Integer> affected = new Vector<Integer>();
+		Profiler.profiler.replace(Profiler.Code.COA_analyze_1, Profiler.Code.COA_analyze_23);
 		for(int aid: minusSet.keySet()) { // for each article whose coaccess vector this action has affected
+		    Profiler.profiler.push(Profiler.Code.COA_analyze_2);
 		    recListCnt++;
 		    CAAHashMap cab = minusSet.get(aid);
 		    CAAList caa = aSet.get(aid);
@@ -174,40 +183,21 @@ public class Coaccess {
 
 		    boolean visibleNow = false;
 		    int changePos = caa.topCAAHaveChanged(n, cab);
+		    Profiler.profiler.replace(Profiler.Code.COA_analyze_2,
+					      Profiler.Code.COA_analyze_3);
 		    if (changePos>=0) {
 			changedRecListCnt++;
 			visible = visibleNow =true;
 			//System.out.println("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " affected")
 			visibleFrom.add(new int[]{aid,changePos});
 		    }
-
-		    //doubleCheck = (aid==25294);
-
-		    if (doubleCheck) {
-			((CAACompact)caa).validate("doubleCheck");
-			int[] tops0 = caa.topCAA(n);
-			int[] tops1 = caa.topCAA(n, cab);
-			boolean visible2 = !arraysEqual(tops0, tops1);
-
-			if (visibleNow && !visible2) {
-			    System.out.println("HOWEVER, Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " don't show change: " +  topToString(caa, tops0));
-			    caa.topCAAHaveChangedDebug(n, cab);
-			} else if (!visibleNow && visible2) {
-			    System.out.print("HOWEVER, Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " show change:");
-			    if (diffIsInsertionsOfOnesOnly(caa, tops1, tops0)) {
-				System.out.println(" Trivial diff (addition of singles)");	
-			    } else {
-				System.out.println();
-				System.out.println("With action: " + topToString(caa, tops0));
-				System.out.println("W/o  action: " + topToString(caa, cab, tops1));
-			    }
-			}
-		    }
-
-	
+		    if (doubleCheck) doubleChecking(aid, caa, cab, visibleNow);	
+		    Profiler.profiler.pop(Profiler.Code.COA_analyze_3);
 		}
 
 		
+		Profiler.profiler.replace( Profiler.Code.COA_analyze_23,
+					  Profiler.Code.COA_analyze_reporting);
 		if (visible) {
 		    visisbleActionCnt++;			
 		    System.out.print("U["+uid+"]="+uar.userNameTable.nameAt(uid)+" viewing of A["+actionAid+"]=" + uar.aidNameTable.nameAt(actionAid) + " is seen from");
@@ -219,16 +209,41 @@ public class Coaccess {
 		    }
 		    System.out.println();
 		}
+		Profiler.profiler.pop(Profiler.Code.COA_analyze_reporting);
 
 		actionCnt++;		
 	    }
+	    Profiler.profiler.pop(Profiler.Code.COA_analyze);
 	    /* 
 	    for(Integer aid: testedAids) {
 		aSet.get(aid).dropCandidates(); // for GC
 	    }
 	    */
+	}	
+    }
+
+    /** Was used to check correctness of some optimized methods, comparing
+	their results with those of unoptimized ones */
+    private void doubleChecking(int aid, CAAList caa, CAAHashMap cab,
+				boolean visibleNow) {
+	((CAACompact)caa).validate("doubleCheck");
+	int[] tops0 = caa.topCAA(n);
+	int[] tops1 = caa.topCAA(n, cab);
+	boolean visible2 = !arraysEqual(tops0, tops1);
+
+	if (visibleNow && !visible2) {
+	    System.out.println("HOWEVER, Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " don't show change: " +  topToString(caa, tops0));
+	    caa.topCAAHaveChangedDebug(n, cab);
+	} else if (!visibleNow && visible2) {
+	    System.out.print("HOWEVER, Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " show change:");
+	    if (diffIsInsertionsOfOnesOnly(caa, tops1, tops0)) {
+		System.out.println(" Trivial diff (addition of singles)");	
+	    } else {
+		System.out.println();
+		System.out.println("With action: " + topToString(caa, tops0));
+		System.out.println("W/o  action: " + topToString(caa, cab, tops1));
+	    }
 	}
-	
     }
 
     static boolean arraysEqual( int[] a, int[] b) {
@@ -480,6 +495,11 @@ public class Coaccess {
 	} else {
 	    coa.coaccessFinal();
 	}
+
+	System.out.println("===Profiler report (wall clock time)===");
+	System.out.println(     Profiler.profiler.report());
+
     }
+
 
 }

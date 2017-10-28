@@ -80,6 +80,7 @@ class CAACompact extends CompressedRow   implements CAAList {
     */	
     public int[] topCAA(int n) {
 	if (n==0) return new int[0];
+	Profiler.profiler.push(Profiler.Code.COA_top);
 	final int n0 = n;
 
 	if (candidates!=null &&  maxValueInOnes()>=threshold) dropCandidates();
@@ -119,7 +120,9 @@ class CAACompact extends CompressedRow   implements CAAList {
 	    //int gv=getValue(entries[i].key);
 	    //if (entries[i].val != gv)  throw new AssertionError("After sorting, content mismatch for i=" +i +", me=" + entries[i] +", getVal="+gv);
 	}
-	return Arrays.copyOf(candidates,n);
+	int[] q = Arrays.copyOf(candidates,n);
+	Profiler.profiler.pop(Profiler.Code.COA_top);
+	return q; 
     }
 
     /** Comparese the list of top n elements of this coaccess matrix row
@@ -135,6 +138,8 @@ class CAACompact extends CompressedRow   implements CAAList {
      */
     public int topCAAHaveChanged(int n, final CAAList incrementMap) {
 	if (candidates==null) throw new AssertionError("This method can only be called after toCAA(n) has been called");
+	Profiler.profiler.push(Profiler.Code.COA_check);
+	try {
 	pack();
 	if (n>candidates.length) n=candidates.length;
 	if (n==0) return -1;
@@ -152,6 +157,9 @@ class CAACompact extends CompressedRow   implements CAAList {
 	    }
 	}
 	return -1;
+	} finally {
+	Profiler.profiler.pop(Profiler.Code.COA_check);
+	}
     }
 
     public boolean topCAAHaveChangedDebug(int n, final CAAList incrementMap) {
@@ -200,6 +208,7 @@ class CAACompact extends CompressedRow   implements CAAList {
 	
     */	
     public int[] topCAA(int n, final CAAList _incrementMap) {
+	Profiler.profiler.push(Profiler.Code.COA_top);
 	pack();
 	if (!(_incrementMap instanceof CAAHashMap)) throw new IllegalArgumentException();
 	CAAHashMap incrementMap = (CAAHashMap)_incrementMap;
@@ -229,6 +238,7 @@ class CAACompact extends CompressedRow   implements CAAList {
 
 	int a[] = new int[n];
 	for(int i=0; i<n; i++) a[i] = entries[i].key;
+	Profiler.profiler.pop(Profiler.Code.COA_top);
 	return a;	       
     }
        

@@ -14,11 +14,13 @@ class CompressedRow  {
 	validate(null);
     }
     void validate(String msg) {
+	Profiler.profiler.push(Profiler.Code.CRS_validate);
 	if (msg==null) msg="pack() or add()";
 	for(int i=0;i<keysCnt;i++) {
 	    if (i>0 && keys[i]<=keys[i-1]) throw new AssertionError("Some method ("+msg+") is broken - keys are not in order in CRS!");
 	    if (values[i]==0)  throw new AssertionError("Some method ("+msg+") is broken - zero value is stored in CRS!");
 	}
+	Profiler.profiler.pop(Profiler.Code.CRS_validate);
     }
 
 
@@ -33,6 +35,7 @@ class CompressedRow  {
      */
     CompressedRow(int [] ones, int onesCnt) {
 	this(onesCnt);
+	Profiler.profiler.push(Profiler.Code.CRS_pack_ones);
 	Arrays.sort(ones);
 	for(int j=0; j<onesCnt;j++) {
 	    if (keysCnt>0 && ones[j]==keys[keysCnt-1]) {
@@ -43,7 +46,8 @@ class CompressedRow  {
 		keysCnt++;
 	    }
 	}
-    } 
+ 	Profiler.profiler.pop(Profiler.Code.CRS_pack_ones);
+   } 
 
     static class MEByKey extends ME {
 	MEByKey( Map.Entry<Integer,MutableInt> x) {
@@ -77,6 +81,7 @@ class CompressedRow  {
 	// FIXME: need threshold management
      */
     void add(CompressedRow x) {
+	Profiler.profiler.push(Profiler.Code.CRS_add);
 	//return add1(x, true, 0);
   	int[] newKeys = new int[keysCnt + x.keysCnt];
 	int[] newValues = new int[keysCnt + x.keysCnt];
@@ -105,11 +110,13 @@ class CompressedRow  {
 	keys = newKeys;
 	values=newValues;
 	//validate("pack()");
+	Profiler.profiler.pop(Profiler.Code.CRS_add);
     }
 
     /** Also checked if the vector has changed so much that it may affect
 	the candidate list */
     boolean add1(CompressedRow x, boolean drop, int threshold) {
+	Profiler.profiler.push(Profiler.Code.CRS_add);
 	int[] newKeys = new int[keysCnt + x.keysCnt];
 	int[] newValues = new int[keysCnt + x.keysCnt];
 	int ia=0, ib=0, ic=0;
@@ -142,11 +149,15 @@ class CompressedRow  {
 	keys = newKeys;
 	values=newValues;
 	//validate("pack()");
+	Profiler.profiler.pop(Profiler.Code.CRS_add);
 	return drop;
-    }
+     }
 
     int findKey(int key) {
-	return Arrays.binarySearch(keys, 0, keysCnt, key);
+ 	Profiler.profiler.push(Profiler.Code.CRS_find);
+	int k= Arrays.binarySearch(keys, 0, keysCnt, key);
+ 	Profiler.profiler.pop(Profiler.Code.CRS_find);
+	return k; 
     }
 
 
