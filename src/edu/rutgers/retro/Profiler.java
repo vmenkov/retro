@@ -12,10 +12,12 @@ public class Profiler {
 	being profiled. Modify this as required. */
     public enum Code {
 	OTHER,
+	READ,
 	CRS_validate,
 	CRS_add,
 	CRS_pack_ones,
 	CRS_find,
+	COA_inc_other,
 	COA_update_coa1,
 	COA_update_coa2,
 	COA_update_coa3,

@@ -279,6 +279,7 @@ public class Coaccess {
      */
     int coaccessIncrementalStep(int pos0, int t1) throws IOException {
 	System.out.println("Step ending at t=" + t1 +" ("+new Date((long)t1*1000L)+"); CA nnz=" + mapSize());
+	Profiler.profiler.push(Profiler.Code.COA_inc_other);
 	int pos = pos0;
 	HashMap<Integer,CAAHashMap> bSet = makeBlankMap();
 	final int len = (int)uar.actionRAF.lengthObject();
@@ -330,7 +331,7 @@ public class Coaccess {
 	Profiler.profiler.pop(Profiler.Code.COA_update_coa3);
 
 	for(PrivacyLog pLog: utSet.values()) pLog.analyze();
-
+	Profiler.profiler.pop(Profiler.Code.COA_inc_other);
 
 	return pos;
     }

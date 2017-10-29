@@ -20,7 +20,9 @@ public class RAF<T extends Storable> extends ObjectRandomAccessFile  {
     }
 
     T read(T blank) throws IOException  {
+	Profiler.profiler.push(Profiler.Code.READ);	
 	blank.readFrom(this);
+	Profiler.profiler.pop(Profiler.Code.READ);	
 	return blank;
     }
     T read(T blank, long posObject) throws IOException  {
