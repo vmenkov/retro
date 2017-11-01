@@ -281,7 +281,7 @@ public class Coaccess {
 	System.out.println("Step ending at t=" + t1 +" ("+new Date((long)t1*1000L)+"); CA nnz=" + mapSize());
 	Profiler.profiler.push(Profiler.Code.COA_inc_other);
 	int pos = pos0;
-	HashMap<Integer,CAAHashMap> bSet = makeBlankMap();
+	HashMap<Integer,CAAHashMap> bSet = makeBlankMap(); // this step's contribution to coaccess data: a row for each article of interest
 	final int len = (int)uar.actionRAF.lengthObject();
 	ActionDetails a = new ActionDetails();
 
@@ -336,8 +336,9 @@ public class Coaccess {
 	return pos;
     }
 
-    /**
-       @param stepSec in seconds
+    /** Emulates the system's entire lifetime, with the coaccess data
+	used by the recommender being updated every stepSec seconds.
+	@param stepSec in seconds (e.g. 24*3600)
      */
     void coaccessIncremental(int stepSec) throws IOException {
 	int pos = 0;
@@ -366,14 +367,84 @@ public class Coaccess {
 	int nextPrintUtc = (uar.actionRAF.read(new ActionDetails(),0).utc/stepSec) * stepSec;
 
 	System.out.println("Immediate-update recommender starts; CA nnz=" + mapSize());
+	//	HashMap<Integer,CAAHashMap> bSet = makeBlankMap();
+	final int len = (int)uar.actionRAF.lengthObject();
+	ActionDetails a = new ActionDetails();
+	for(PrivacyLog pLog: utSet.values()) pLog.minusDataVec.clear();
+
+	for(int pos = 0; pos<len; pos++) { // for all actions, ever
+
+	    uar.actionRAF.read(a,pos); 
+	    // the user who carried out this action
+	    UserActionReader.UserEntry user = uar.users[a.uid];
+	    CAAList caa = aSet.get(a.aid);
+
+	    boolean doMinus = utSet.containsKey(a.uid); 
+	    MinusData minusSet = null;  // contribution of this particular action (with minus sign)
+	    if (doMinus) minusSet = new MinusData(a);
+			
+	    if (user.ofInterest!=null) {  // update CAA for the articles of interest seen earlier by this user
+		for(int j: user.ofInterest) {
+		    aSet.get(j).addValue(a.aid, 1);
+		    if (doMinus) minusSet.add(j,a.aid, -1);
+		}
+	    }
+
+	    if (caa!=null) { // this is an article of interest
+		if (user.ofInterest==null) user.ofInterest = new Vector<Integer>(2,4);
+		user.ofInterest.add(a.aid);
+
+		CAAHashMap minusCaa = null;
+		if (doMinus) minusSet.put(a.aid, minusCaa=new CAAHashMap());
+		ActionDetails[] as = uar.earlyActionsForUser(a.uid);
+		for(ActionDetails y: as) {	    
+		    caa.addValue(y.aid, 1);
+		    if (doMinus) minusCaa.addValue(y.aid, -1);
+		}
+	    }
+	    user.readCnt++;
+
+	    if (doMinus) {
+		PrivacyLog pLog = utSet.get(a.uid);
+		pLog.minusDataVec.add(minusSet);
+		pLog.analyze();
+		pLog.minusDataVec.clear();
+	    }
+
+	    if (a.utc > nextPrintUtc) {
+		System.out.println("At t=" + a.utc +" ("+new Date((long)a.utc*1000L)+"); CA nnz=" + mapSize());
+
+		nextPrintUtc += stepSec;
+	    }
+
+	}
+
+	reportTop();
+
+	System.out.println("Privacy report");
+	for(Integer uid: utSet.keySet()) {
+	    PrivacyLog pLog = utSet.get(uid);
+	    System.out.println("For user " + uid + " ("+uar.userNameTable.nameAt(uid)+"), out of " + pLog.actionCnt + ", visible " + pLog.visisbleActionCnt + 
+			       " (" +pLog.changedRecListCnt+ " rec lists out of " +pLog.recListCnt +")");
+
+	}
+    }
+    
+    /*
+    void predictStructure() throws IOException {
+	final int stepSec = 3600 * 24 * 7;
+	int nextPrintUtc = (uar.actionRAF.read(new ActionDetails(),0).utc/stepSec) * stepSec;
+
+	System.out.println("Immediate-update recommender starts; CA nnz=" + mapSize());
 	HashMap<Integer,CAAHashMap> bSet = makeBlankMap();
 	final int len = (int)uar.actionRAF.lengthObject();
 	ActionDetails a = new ActionDetails();
 	for(PrivacyLog pLog: utSet.values()) pLog.minusDataVec.clear();
 
-	for(int pos = 0; pos<len; pos++) {
+	for(int pos = 0; pos<len; pos++) { // for all actions, ever
 
 	    uar.actionRAF.read(a,pos); 
+	    // the user who carried out this action
 	    UserActionReader.UserEntry user = uar.users[a.uid];
 	    CAAList caa = bSet.get(a.aid);
 
@@ -419,27 +490,16 @@ public class Coaccess {
 		nextPrintUtc += stepSec;
 	    }
 
-
-
 	}
-
-	reportTop();
-
-	System.out.println("Privacy report");
-	for(Integer uid: utSet.keySet()) {
-	    PrivacyLog pLog = utSet.get(uid);
-	    System.out.println("For user " + uid + " ("+uar.userNameTable.nameAt(uid)+"), out of " + pLog.actionCnt + ", visible " + pLog.visisbleActionCnt + 
-			       " (" +pLog.changedRecListCnt+ " rec lists out of " +pLog.recListCnt +")");
-
-	}
-
 
     }
-    
+    */    
 
 
     static public void main(String argv[]) throws IOException {
 	ParseConfig ht = new ParseConfig();
+
+	Profiler.profiler.setOn( ht.getOption("profile", true));
 
 	String indexPath = ht.getOption("index", "out");
 	File indexDir = new File(indexPath);
@@ -448,14 +508,16 @@ public class Coaccess {
 	boolean inc = ht.getOption("inc", false);
 	boolean testUsers = ht.getOption("testUsers", true);
 	boolean useCompact = ht.getOption("compact", true);
-	double hours = ht.getOption("step", 24);
+	double hours = ht.getOptionDouble("step", 24);
 
 	// The number of top articles that are displayed as rec list 
 	final int n = ht.getOption("n", 10);
 	
 	System.out.println("Incremental mode=" + inc +
 			   (inc? ", with step=" + hours + " hrs": ""));
+	// articles whose coaccess lists we will monitor
 	Vector<Integer> articles = new Vector<Integer>();
+	// users the effect of whose actions we will measure
 	Vector<Integer> usersToTest = new Vector<Integer>();
 
 	System.out.println("Compact data format=" + useCompact);

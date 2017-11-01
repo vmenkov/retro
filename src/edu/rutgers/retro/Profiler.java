@@ -8,6 +8,10 @@ public class Profiler {
 
     private boolean on = true;
 
+    public void enable() { on=true; }
+    public void disable() { on=false; }
+    public void setOn(boolean _on) { on=_on; }
+
     /** Identifying codes for various sections of the application
 	being profiled. Modify this as required. */
     public enum Code {

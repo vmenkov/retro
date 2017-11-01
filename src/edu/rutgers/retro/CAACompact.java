@@ -14,14 +14,23 @@ class CAACompact extends CompressedRow   implements CAAList {
     int[] ones = new int[100];
 
     /** Moves all data from ones[] into the main CRS structure. Also
-	tests if any of the newly added values if high enough to
+	tests if any of the recently added values is high enough to
 	potentially enter the candidate array. */
     private void pack() {
 	if (onesCnt==0) return;
+
+	if (candidates!=null && maxValueInOnes() >= threshold) {
+	    System.out.println("PACK: drop1");
+	    dropCandidates();
+	}
+
 	CompressedRow x =  new CompressedRow(ones, onesCnt);	
 	add(x);	
 	onesCnt=0;
-	if (candidates!=null && x.reachesThreshold(threshold)) dropCandidates();
+	if (candidates!=null && x.reachesThreshold(threshold)) {
+	    System.out.println("PACK: drop2");
+	    dropCandidates();
+	}
     }
 
     /** Adds a single-component vector (x[j]=inc) to this vector. Either 
@@ -36,7 +45,7 @@ class CAACompact extends CompressedRow   implements CAAList {
 	} else if (keysCnt<keys.length && j>keys[keysCnt-1]) {
 	    keys[keysCnt]=j;
 	    values[keysCnt]=inc;
-	    if (values[k]>=threshold) dropCandidates();
+	    if (values[keysCnt]>=threshold) dropCandidates();
 	    keysCnt++;
 	} else if (inc!=1) {
 	    throw new IllegalArgumentException("addValue() only supported with inc=1");
@@ -83,8 +92,13 @@ class CAACompact extends CompressedRow   implements CAAList {
 	Profiler.profiler.push(Profiler.Code.COA_top);
 	final int n0 = n;
 
-	if (candidates!=null &&  maxValueInOnes()>=threshold) dropCandidates();
+	// Check if the next pack() would cause candidate change
+	if (candidates!=null && maxValueInOnes()>=threshold) {
+	    System.out.println("TopCAA: drop");
+	    dropCandidates();
+	}
 
+	int ot = threshold;
 	ME[] entries;
 	int ecnt = 0;
 	if (candidates==null) {
@@ -103,15 +117,23 @@ class CAACompact extends CompressedRow   implements CAAList {
 	}
 	Arrays.sort(entries, 0, ecnt);
 	int m;
-	if (ecnt <= n) { // save them all
+	if (ecnt < n) { // save them all. 
 	    m = n = ecnt;
-	    threshold = 0;
+	    threshold = 0; // any new component will become a new candidate!
 	} else {   // How many candidates do we need to save?
 	    m = n;
 	    threshold = entries[n-1].val-1;
 	    while(m < ecnt && entries[m].val >= threshold) m++;
 	}
-	
+	if (threshold != ot) System.out.println("Threshold changed: " + ot + " to " + threshold + " (|cc|="+m+")");
+	if (threshold < ot) {
+	    System.out.print("Threshold dropped!? Entries = ");
+	    for( int i=0;i<m; i++) System.out.print(" " +  entries[i]);
+	    System.out.println();
+
+	}
+
+
 	candidates=new int[m];
 	for(int i=0;i<candidates.length; i++) {
 	    candidates[i]=entries[i].key;
@@ -140,7 +162,7 @@ class CAACompact extends CompressedRow   implements CAAList {
 	if (candidates==null) throw new AssertionError("This method can only be called after toCAA(n) has been called");
 	Profiler.profiler.push(Profiler.Code.COA_check);
 	try {
-	pack();
+	    pack(); // FIXME: what if pack() drops candidates[]?
 	if (n>candidates.length) n=candidates.length;
 	if (n==0) return -1;
 	int last=0, ilast=0;
@@ -273,10 +295,10 @@ class CAACompact extends CompressedRow   implements CAAList {
     /** The C-norm of a vector represented by ones[] */
     int maxValueInOnes() {
 	Arrays.sort(ones);
-	int max = 1;
+	int max = 0;
 	int startJ = 0;
 	for(int j=0; j<onesCnt;j++) {
-	    if (ones[j] == startJ) {
+	    if (ones[j] == ones[startJ]) {
 		int m = j-startJ+1;
 		if (m > max) max = m;
 	    } else {

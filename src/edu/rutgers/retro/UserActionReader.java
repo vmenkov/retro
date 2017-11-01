@@ -41,7 +41,7 @@ public class  UserActionReader extends UserActionSaver {
     }
 
 
-   /** The first n actions for the specified user */
+    /** Reads the first n actions for the specified user */
     private ActionDetails[] someActionsForUser(int uid, final int n)  throws IOException {
 	ActionDetails[] as = new ActionDetails[n];
 	userHistoryRAF.seekObject(users[uid].offset0);
