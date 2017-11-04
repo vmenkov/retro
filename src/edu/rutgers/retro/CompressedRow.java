@@ -19,6 +19,7 @@ class CompressedRow  {
 	for(int i=0;i<keysCnt;i++) {
 	    if (i>0 && keys[i]<=keys[i-1]) throw new AssertionError("Some method ("+msg+") is broken - keys are not in order in CRS!");
 	    if (values[i]==0)  throw new AssertionError("Some method ("+msg+") is broken - zero value is stored in CRS!");
+	    //	    if (keys[i]==0) throw new AssertionError("Suspicious zero key (i=" + i+")");
 	}
 	Profiler.profiler.pop(Profiler.Code.CRS_validate);
     }
@@ -36,8 +37,8 @@ class CompressedRow  {
     CompressedRow(int [] ones, int onesCnt) {
 	this(onesCnt);
 	Profiler.profiler.push(Profiler.Code.CRS_pack_ones);
-	Arrays.sort(ones);
-	for(int j=0; j<onesCnt;j++) {
+	Arrays.sort(ones, 0, onesCnt);
+	for(int j=0; j<onesCnt;j++) {	 
 	    if (keysCnt>0 && ones[j]==keys[keysCnt-1]) {
 		values[keysCnt-1]++;
 	    } else {
@@ -81,35 +82,36 @@ class CompressedRow  {
 	// FIXME: need threshold management
      */
     void add(CompressedRow x) {
+	//	x.validate("x");
 	Profiler.profiler.push(Profiler.Code.CRS_add);
 	//return add1(x, true, 0);
   	int[] newKeys = new int[keysCnt + x.keysCnt];
 	int[] newValues = new int[keysCnt + x.keysCnt];
 	int ia=0, ib=0, ic=0;
-	while(ia<keysCnt && ib<x.keysCnt) {
+	for(;ia<keysCnt && ib<x.keysCnt;ic++) {
 	    if ( keys[ia]< x.keys[ib] ) {
 		newKeys[ic] = keys[ia];
-		newValues[ic++] = values[ia++];
+		newValues[ic] = values[ia++];
 	    } else if ( keys[ia] >  x.keys[ib] ) {		
 		newKeys[ic] = x.keys[ib];
-		newValues[ic++] = x.values[ib++];
+		newValues[ic] = x.values[ib++];
 	    } else { // equality
 		newKeys[ic] = keys[ia];
-		newValues[ic++] = values[ia++] + x.values[ib++];
+		newValues[ic] = values[ia++] + x.values[ib++];
 	    }
 	}
-	while(ia<keysCnt) {
+	for(; ia<keysCnt; ic++) {
 	    newKeys[ic] = keys[ia];
-	    newValues[ic++] = values[ia++];
+	    newValues[ic] = values[ia++];
 	}
-	while( ib<x.keysCnt) {
+	for(; ib<x.keysCnt; ic++) {
 	    newKeys[ic] = x.keys[ib];
-	    newValues[ic++] = x.values[ib++];
+	    newValues[ic] = x.values[ib++];
 	}
 	keysCnt=ic;
 	keys = newKeys;
 	values=newValues;
-	//validate("pack()");
+	//	validate("CR.add()");
 	Profiler.profiler.pop(Profiler.Code.CRS_add);
     }
 
@@ -120,35 +122,35 @@ class CompressedRow  {
 	int[] newKeys = new int[keysCnt + x.keysCnt];
 	int[] newValues = new int[keysCnt + x.keysCnt];
 	int ia=0, ib=0, ic=0;
-	while(ia<keysCnt && ib<x.keysCnt) {
+	for(;ia<keysCnt && ib<x.keysCnt;ic++) {
 	    if ( keys[ia]< x.keys[ib] ) {
 		newKeys[ic] = keys[ia];
-		newValues[ic++] = values[ia++];
+		newValues[ic] = values[ia++];
 	    } else if ( keys[ia] >  x.keys[ib] ) {		
 		newKeys[ic] = x.keys[ib];
 		drop = drop || (x.values[ib] >= threshold);
-		newValues[ic++] = x.values[ib++];
+		newValues[ic] = x.values[ib++];
 	    } else { // equality
 		newKeys[ic] = keys[ia];
 		int val0 = values[ia];
 		int val1 = values[ia++] + x.values[ib++];
-		newValues[ic++] = val1;
+		newValues[ic] = val1;
 		drop = drop || (val0 < threshold) && (val1 >= threshold);
 	    }
 	}
-	while(ia<keysCnt) {
+	for(; ia<keysCnt; ic++) {
 	    newKeys[ic] = keys[ia];
-	    newValues[ic++] = values[ia++];
+	    newValues[ic] = values[ia++];
 	}
-	while( ib<x.keysCnt) {
+	for(; ib<x.keysCnt; ic++) {
 	    newKeys[ic] = x.keys[ib];
 	    drop = drop || (x.values[ib] >= threshold);
-	    newValues[ic++] = x.values[ib++];
+	    newValues[ic] = x.values[ib++];
 	}
 	keysCnt=ic;
 	keys = newKeys;
 	values=newValues;
-	//validate("pack()");
+	//	validate("pack()");
 	Profiler.profiler.pop(Profiler.Code.CRS_add);
 	return drop;
      }

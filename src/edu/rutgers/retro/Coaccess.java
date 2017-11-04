@@ -26,19 +26,22 @@ public class Coaccess {
     /** The number of top articles that are displayed as rec list */
     final int n;
 
-       
-    Coaccess(UserActionReader _uar, Vector<Integer> _articles, Vector<Integer> _usersToTest, boolean useCompact, int _n) {
+    Coaccess(UserActionReader _uar, Vector<Integer> _articles,  Vector<Integer> _usersToTest, int _n) {
 	n = _n;
 	uar = _uar;
 	articles = _articles;
 	usersToTest =  _usersToTest;
 	aSet = new HashMap<Integer,CAAList>();
-	for(Integer aid: articles) {
-	    aSet.put(aid, useCompact? new CAACompact():new CAAHashMap());
-	}
 	utSet = new HashMap<Integer,PrivacyLog>();
 	for(Integer uid: usersToTest) {
 	    utSet.put(uid, new PrivacyLog());
+	}
+    }
+       
+    Coaccess(UserActionReader _uar, Vector<Integer> _articles, Vector<Integer> _usersToTest, boolean useCompact, int _n) {
+	this(_uar, _articles,  _usersToTest, _n);
+	for(Integer aid: articles) {
+	    aSet.put(aid, useCompact? new CAACompact():new CAAHashMap());
 	}
     }    
 
@@ -51,7 +54,7 @@ public class Coaccess {
 	return bSet;
     }
 
-    private int mapSize() {
+    int mapSize() {
 	int sum=0;
 	for(CAAList caa: aSet.values()) sum += caa.size();
 	return sum;
@@ -287,8 +290,8 @@ public class Coaccess {
 
 	for(PrivacyLog pLog: utSet.values()) pLog.minusDataVec.clear();
 
-
 	for(; pos < len && uar.actionRAF.read(a,pos).utc < t1; pos++) {
+
 	    UserActionReader.UserEntry user = uar.users[a.uid];
 	    CAAList caa = bSet.get(a.aid);
 
@@ -296,7 +299,7 @@ public class Coaccess {
 	    MinusData minusSet = null;
 	    if (doMinus) minusSet = new MinusData(a);
 			
-	    if (user.ofInterest!=null) {  // update CAA for the articles of interest seen earlier by this user
+	    if (user.ofInterest!=null) {  // update CAA for all articles of interest seen earlier by this user
 		Profiler.profiler.push(Profiler.Code.COA_update_coa1);
 
 		for(int j: user.ofInterest) {
@@ -330,7 +333,10 @@ public class Coaccess {
 	}
 	Profiler.profiler.pop(Profiler.Code.COA_update_coa3);
 
-	for(PrivacyLog pLog: utSet.values()) pLog.analyze();
+	for(PrivacyLog pLog: utSet.values()) {
+	    pLog.analyze();
+	    pLog.minusDataVec.clear();
+	}
 	Profiler.profiler.pop(Profiler.Code.COA_inc_other);
 
 	return pos;
@@ -363,11 +369,12 @@ public class Coaccess {
 
     /** Emulates a recommender with immediately-updated coaccess data */
     void coaccessImmediate() throws IOException {
+
 	final int stepSec = 3600 * 24 * 7;
 	int nextPrintUtc = (uar.actionRAF.read(new ActionDetails(),0).utc/stepSec) * stepSec;
 
 	System.out.println("Immediate-update recommender starts; CA nnz=" + mapSize());
-	//	HashMap<Integer,CAAHashMap> bSet = makeBlankMap();
+
 	final int len = (int)uar.actionRAF.lengthObject();
 	ActionDetails a = new ActionDetails();
 	for(PrivacyLog pLog: utSet.values()) pLog.minusDataVec.clear();
@@ -377,7 +384,7 @@ public class Coaccess {
 	    uar.actionRAF.read(a,pos); 
 	    // the user who carried out this action
 	    UserActionReader.UserEntry user = uar.users[a.uid];
-	    CAAList caa = aSet.get(a.aid);
+	    CAAList caa = aSet.get(a.aid); 
 
 	    boolean doMinus = utSet.containsKey(a.uid); 
 	    MinusData minusSet = null;  // contribution of this particular action (with minus sign)
@@ -430,72 +437,6 @@ public class Coaccess {
 	}
     }
     
-    /*
-    void predictStructure() throws IOException {
-	final int stepSec = 3600 * 24 * 7;
-	int nextPrintUtc = (uar.actionRAF.read(new ActionDetails(),0).utc/stepSec) * stepSec;
-
-	System.out.println("Immediate-update recommender starts; CA nnz=" + mapSize());
-	HashMap<Integer,CAAHashMap> bSet = makeBlankMap();
-	final int len = (int)uar.actionRAF.lengthObject();
-	ActionDetails a = new ActionDetails();
-	for(PrivacyLog pLog: utSet.values()) pLog.minusDataVec.clear();
-
-	for(int pos = 0; pos<len; pos++) { // for all actions, ever
-
-	    uar.actionRAF.read(a,pos); 
-	    // the user who carried out this action
-	    UserActionReader.UserEntry user = uar.users[a.uid];
-	    CAAList caa = bSet.get(a.aid);
-
-	    boolean doMinus = utSet.containsKey(a.uid);
-	    MinusData minusSet = null;
-	    if (doMinus) minusSet = new MinusData(a);
-			
-	    if (user.ofInterest!=null) {  // update CAA for the articles of interest seen earlier by this user
-		for(int j: user.ofInterest) {
-		    bSet.get(j).addValue(a.aid, 1);
-		    if (doMinus) minusSet.add(j,a.aid, -1);
-		}
-	    }
-
-	    if (caa!=null) { // this is an article of interest
-		if (user.ofInterest==null) user.ofInterest = new Vector<Integer>(2,4);
-		user.ofInterest.add(a.aid);
-
-		CAAHashMap minusCaa = null;
-		if (doMinus) minusSet.put(a.aid, minusCaa=new CAAHashMap());
-		ActionDetails[] as = uar.earlyActionsForUser(a.uid);
-		for(ActionDetails y: as) {	    
-		    caa.addValue(y.aid, 1);
-		    if (doMinus) minusCaa.addValue(y.aid, -1);
-		}
-	    }
-	    user.readCnt++;
-	    PrivacyLog pLog = doMinus? utSet.get(a.uid) : null;
-	    
-	    for(Integer aid: bSet.keySet()) { 
-		aSet.get(aid).add(bSet.get(aid));
-	    }
-
-	    if (doMinus) {
-		pLog.minusDataVec.add(minusSet);
-		pLog.analyze();
-		pLog.minusDataVec.clear();
-	    }
-
-	    if (a.utc > nextPrintUtc) {
-		System.out.println("At t=" + a.utc +" ("+new Date((long)a.utc*1000L)+"); CA nnz=" + mapSize());
-
-		nextPrintUtc += stepSec;
-	    }
-
-	}
-
-    }
-    */    
-
-
     static public void main(String argv[]) throws IOException {
 	ParseConfig ht = new ParseConfig();
 
@@ -573,6 +514,5 @@ public class Coaccess {
 	System.out.println(     Profiler.profiler.report());
 
     }
-
 
 }
