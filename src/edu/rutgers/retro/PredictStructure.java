@@ -35,11 +35,13 @@ public class PredictStructure extends Coaccess {
 	    uar.actionRAF.read(a,pos); 
 	    // the user who carried out this action
 	    UserActionReader.UserEntry user = uar.users[a.uid];
-	    CAAList caa = aSet.get(a.aid); 
+	    CAACompact2 caa = (CAACompact2)aSet.get(a.aid); 
 			
 	    if (user.ofInterest!=null) {  // update CAA for the articles of interest seen earlier by this user
 		for(int j: user.ofInterest) {
-		    aSet.get(j).addValue(a.aid, 1);
+		    CAACompact2 caz = (CAACompact2)aSet.get(j);
+		    caz.addValue(a.aid, 1);
+		    if (!caz.hasCandidates) caz.topCAA(n);
 		}
 	    }
 
@@ -51,6 +53,7 @@ public class PredictStructure extends Coaccess {
 		for(ActionDetails y: as) {	    
 		    caa.addValue(y.aid, 1);
 		}
+		if (!caa.hasCandidates) caa.topCAA(n);
 	    }
 	    user.readCnt++;
 
@@ -61,9 +64,86 @@ public class PredictStructure extends Coaccess {
 
 	}
 
-	reportTop();
+	reportStructure();
     }
+
+    /** Prints the top coaccess values for all articles of interest. */
+    void reportStructure()     {
+	for(int aid: articles) {
+	    CAACompact2 caa = (CAACompact2)aSet.get(aid);
+	    int[] tops = caa.topCAA(n);
+	    System.out.println("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " ("+caa.size()+") are:");
+	    System.out.println( topToString(caa, tops));
+	    System.out.print("Keep " + caa.allTimeCandidates.size() + " candidates out of "+caa.size()+":" );
+	    for(int k: caa.allTimeCandidates) {
+		System.out.print(" " + k + ":" +  uar.aidNameTable.nameAt(k) +
+				 ":" + caa.getValue(k));
+	    }
+	    System.out.println();
+	}
+    }
+
     
+    static public void main(String argv[]) throws IOException {
+	ParseConfig ht = new ParseConfig();
+
+	Profiler.profiler.setOn( ht.getOption("profile", true));
+
+	String indexPath = ht.getOption("index", "out");
+	File indexDir = new File(indexPath);
+	UserActionReader uar = new UserActionReader(indexDir);
+
+	// The number of top articles that are displayed as rec list 
+	final int n = ht.getOption("n", 10);
+	
+	// articles whose coaccess lists we will monitor
+	Vector<Integer> articles = new Vector<Integer>();
+       
+	int ja=0;
+	String cmd = argv[ja++];
+	if (cmd.equals("article") || cmd.equals("aid")) {
+	    while(ja<argv.length) {
+		String s = argv[ja++];
+		int aid =  cmd.equals("aid")? Integer.parseInt(s): uar.aidNameTable.get(s);
+		System.out.println("Article " + aid + " ("+uar.aidNameTable.nameAt(aid)+")");
+		articles.add(aid);
+	    }
+	} else if (cmd.equals("arange")) { // a1 <= aid < a2
+	    int a[] = { Integer.parseInt(argv[ja]), Integer.parseInt(argv[ja+1])};
+	    ja +=2 ;
+	    for(int aid=a[0]; aid<a[1]; aid++) {
+		System.out.println("Article " + aid + " ("+uar.aidNameTable.nameAt(aid)+")");	
+		articles.add(aid);
+	    }    
+	    
+	} else if (cmd.equals("uname") || cmd.equals("uid")) {
+	    while(ja<argv.length) {
+		String s = argv[ja++];
+		int uid = cmd.equals("uid")? Integer.parseInt(s) :
+		    uar.userNameTable.get(s);
+		ActionDetails[] as = uar.actionsForUser(uid);
+		System.out.println("For user " + uid + " ("+uar.userNameTable.nameAt(uid)+"), adding " + as.length + " articles" );
+		for(ActionDetails x: as) {
+		    articles.add(x.aid);
+		}
+	    }
+	} else {
+	    throw new IllegalArgumentException("Unknown command: " + cmd);
+	}
+
+	System.out.println("Will compute coaccess data for " + articles.size() + " articles");
+	PredictStructure coa = new PredictStructure(uar, articles, n);
+	Profiler.profiler.push(Profiler.Code.OTHER);
+
+	coa. predictStructure();
+
+
+	Profiler.profiler.pop(Profiler.Code.OTHER);
+
+	System.out.println("===Profiler report (wall clock time)===");
+	System.out.println(     Profiler.profiler.report());
+
+    }
 
 
 }

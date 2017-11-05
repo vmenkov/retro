@@ -189,6 +189,7 @@ public class UserStats {
 	w.close();
     }
 
+    /** Creates the user action index, using the UserActionSaver class */
     void saveActions(NameTable aidNameTable, File[] jsonFiles)  throws IOException {
 	// create user list aligned with userNameTable order
 	//UserInfo users[] = new UserInfo[userNameTable.size()];

@@ -8,7 +8,29 @@ import org.json.*;
 
 /** An auxiliary class used to save the information of users' action history
     to a random-access file. This is part of the process of building the 
-    action index. The main class is UserStats.
+    action index. The main class for thsi application is UserStats; the 
+    shell script that runs it, is users.sh
+
+    <p>The data files created by this class are the following:
+    <ul>
+    <li>actions.dat - information about all actions. Each record contains
+    the (our internal) article ID, the (our internal) user ID, and the timestamp
+    (UTC seconds). The entry appear in the order in which they were found in 
+    arxiv.org logs. 
+    <li>userHistoryIndex.dat - for each user, contans a pointer to the 
+    beginning of the section of userHistory.dat pertaining to this user.
+    <li>userHistory.dat - divided into user-specific sections (whose 
+    starting points are listed in userHistoryIndex.dat). Each user's
+    sections lists all actions of this user which we're going to use
+    in our analysis. Each action's entry here is an integer pointer to
+    the action's description in actions.dat 
+    </ul>
+
+    <p>Our internal article IDs and user IDs are mapped to the 
+    ArXiv article IDs and user hashes (from arXiv log) by pre-existing
+    files,   aid.dat and  users.dat
+    </P>
+
 */
 class UserActionSaver {	
 
@@ -209,7 +231,6 @@ class UserActionSaver {
 
 	File historyFile = new File(outdir, "userHistory.dat");
 	userHistoryRAF=new ObjectRandomAccessFile(historyFile,mode, Integer.SIZE/8);
-
     }
     
     void closeFiles() throws IOException {
