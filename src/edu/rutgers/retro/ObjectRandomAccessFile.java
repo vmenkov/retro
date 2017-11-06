@@ -13,12 +13,21 @@ public class ObjectRandomAccessFile extends RandomAccessFile {
 	sizeof = _sizeof;
     }
     
-    final void seekObject(long n) throws IOException {
+    /** Positions the cursor.
+	@param Offset, in terms of objects (rather than bytes) */
+     final void seekObject(long n) throws IOException {
 	seek(n * sizeof);
     }
 
     final void seekToEnd()  throws IOException {
 	seek(length());
+    }
+
+  /** @return File length, measured in units of object size (rather than in bytes) */
+    final long lengthObject()  throws IOException {
+	long len = length();
+	if (len % sizeof != 0) throw new IllegalArgumentException("File size is not a multiple of object size (" + sizeof +")");
+	return len / sizeof;
     }
 
     /** Like super.setLength, 
@@ -28,12 +37,6 @@ public class ObjectRandomAccessFile extends RandomAccessFile {
 	setLength( n*sizeof);
     }
  
-    /** @return File length, measured in units of object size (rather than in bytes) */
-    final long lengthObject() throws IOException {
-	return length()/sizeof;
-    }
-
-
 
     /*
     void store(T x) throws IOException  {
