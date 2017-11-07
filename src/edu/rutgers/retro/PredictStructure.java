@@ -247,8 +247,10 @@ public class PredictStructure extends Coaccess {
 	    // The remaining args should be "a1 a2" or "a1  +d" (where a2=a1+d)
 	    // a1 <= aid < a2
 	    String q[] = {argv[ja], argv[ja+1]};
+	    boolean plus = q[1].startsWith("+");
+	    if (plus) q[1] = q[1].substring(1);
 	    int a[] = { Integer.parseInt(q[0]), Integer.parseInt(q[1])};
-	    if (q[1].startsWith("+")) a[1] = a[0] + a[1];
+	    if (plus) a[1] = a[0] + a[1];
 
 	    ja +=2 ;
 	    System.out.println("Adding articles " +a[0]+ " thru " +a[1]+ "-1");
