@@ -185,7 +185,7 @@ public class PredictStructure extends Coaccess {
 	    for(int k: caa.allTimeCandidates) {
 		structureRAF.writeInt(k);
 	    }
-	    end = start + caa.size();
+	    end = start + caa.allTimeCandidates.size();
 	    structureIndexRAF.seekObject(aid+1);	
 	    structureIndexRAF.writeInt(end);		   
 	}	    
@@ -257,7 +257,7 @@ public class PredictStructure extends Coaccess {
 
 	if (willWrite) {
 	    if (!coa.olderIndexDataExist(articles.elementAt(0), canRewrite)) {
-		System.out.println("Can't do writing to index - no older data found for a<" +articles.elementAt(0));
+		System.out.println("Can't do writing to index - the files with older data for a<" +articles.elementAt(0) + " don't exist or have unexpected size");
 		System.exit(1);
 	    }
 	}
