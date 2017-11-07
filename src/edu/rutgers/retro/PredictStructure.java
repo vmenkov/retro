@@ -195,6 +195,21 @@ public class PredictStructure extends Coaccess {
 	System.out.println("Done writing; structure file ends at " + end + " values mark"); 
 
     }
+
+    static void usage() {
+	usage(null);
+    }
+
+    static void usage(String m) {
+	System.out.println("Usage:");
+	System.out.println(" java PredictStructure [article|aid] a1 a2 ...");
+	System.out.println(" java PredictStructure [arange|arangewrite] a1 a2");
+	System.out.println(" java PredictStructure [arange|arangewrite] a1 +d");
+	if (m!=null) {
+	    System.out.println(m);
+	}
+	System.exit(1);
+    }
        
     static File indexDir;
 
@@ -228,10 +243,18 @@ public class PredictStructure extends Coaccess {
 		System.out.println("Article " + aid + " ("+uar.aidNameTable.nameAt(aid)+")");
 		articles.add(aid);
 	    }
-	} else if (cmd.equals("arange") || cmd.equals("arangewrite")) { // a1 <= aid < a2
-	    int a[] = { Integer.parseInt(argv[ja]), Integer.parseInt(argv[ja+1])};
+	} else if (cmd.equals("arange") || cmd.equals("arangewrite")) { 
+	    // The remaining args should be "a1 a2" or "a1  +d" (where a2=a1+d)
+	    // a1 <= aid < a2
+	    String q[] = {argv[ja], argv[ja+1]};
+	    int a[] = { Integer.parseInt(q[0]), Integer.parseInt(q[1])};
+	    if (q[1].startsWith("+")) a[1] = a[0] + a[1];
+
 	    ja +=2 ;
 	    System.out.println("Adding articles " +a[0]+ " thru " +a[1]+ "-1");
+	    if (!(0<=a[0] && a[0] < a[1])) usage("Invalid range: " +a[0]+ " thru " +a[1]);
+
+
 	    for(int aid=a[0]; aid<a[1]; aid++) {
 		System.out.println("Article " + aid + " ("+uar.aidNameTable.nameAt(aid)+")");	
 		articles.add(aid);
