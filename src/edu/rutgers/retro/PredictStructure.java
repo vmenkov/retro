@@ -144,6 +144,9 @@ public class PredictStructure extends Coaccess {
 	structureIndexRAF.seekObject(a1-1);
 	int b1 = (int)structureIndexRAF.readInt();
 	int b2 = (int)structureIndexRAF.readInt();
+
+	len =  (int)structureRAF.lengthObject();
+
 	structureRAF.seekObject(b1);
 	int [] data = new int[b2-b1];
 	for(int j=0; j<data.length; j++) {
@@ -186,6 +189,8 @@ public class PredictStructure extends Coaccess {
 	    structureIndexRAF.seekObject(aid+1);	
 	    structureIndexRAF.writeInt(end);		   
 	}	    
+	System.out.println("Reported structure index file size=" + structureIndexRAF.length() + " bytes = " +  structureIndexRAF.lengthObject() + " values");
+	System.out.println("Reported structure index file size=" + structureRAF.length() + " bytes = " +  structureRAF.lengthObject() + " values");
 	closeFiles();
 	System.out.println("Done writing; structure file ends at " + end + " values mark"); 
 
