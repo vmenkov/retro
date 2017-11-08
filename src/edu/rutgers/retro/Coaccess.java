@@ -38,10 +38,28 @@ public class Coaccess {
 	}
     }
        
-    Coaccess(UserActionReader _uar, Vector<Integer> _articles, Vector<Integer> _usersToTest, boolean useCompact, int _n) {
+    Coaccess(UserActionReader _uar, Vector<Integer> _articles, Vector<Integer> _usersToTest, boolean useCompact, boolean useStructure, File indexDir, int _n) throws IOException {
 	this(_uar, _articles,  _usersToTest, _n);
-	for(Integer aid: articles) {
-	    aSet.put(aid, useCompact? new CAACompact():new CAAHashMap());
+
+	if (useStructure) {
+	    System.out.println("Do try to use fixed structure");
+	    PredictStructure.IndexFiles fi = new PredictStructure.IndexFiles(indexDir);
+	    fi.openFiles("r");
+	    int doUseStructureCnt = 0;
+
+	    for(Integer aid: articles) {
+		CAACompact caa =  new CAACompact(fi, aid);
+		doUseStructureCnt += (caa.fixedStructure? 1 :  0);
+		aSet.put(aid,caa);
+	    }
+	    System.out.println("Out of " + articles.size() + " matrix rows in use, " + doUseStructureCnt + " use precomputed fixed structure");
+	    fi.closeFiles();
+	} else {
+	    System.out.println("Will not use fixed structure");
+	    for(Integer aid: articles) {
+		CAAList caa = useCompact? new CAACompact():new CAAHashMap();
+		aSet.put(aid,caa);
+	    }
 	}
     }    
 
@@ -436,6 +454,7 @@ public class Coaccess {
 
 	}
     }
+
     
     static public void main(String argv[]) throws IOException {
 	ParseConfig ht = new ParseConfig();
@@ -449,6 +468,7 @@ public class Coaccess {
 	boolean inc = ht.getOption("inc", false);
 	boolean testUsers = ht.getOption("testUsers", true);
 	boolean useCompact = ht.getOption("compact", true);
+	boolean useStructure = ht.getOption("structure", true);
 	double hours = ht.getOptionDouble("step", 24);
 
 	// The number of top articles that are displayed as rec list 
@@ -462,6 +482,7 @@ public class Coaccess {
 	Vector<Integer> usersToTest = new Vector<Integer>();
 
 	System.out.println("Compact data format=" + useCompact);
+	System.out.println("Use structure=" + useStructure);
 
        
 	int ja=0;
@@ -496,7 +517,7 @@ public class Coaccess {
 	    System.out.println();
 	}
 	System.out.println("Will compute coaccess data for " + articles.size() + " articles");
-	Coaccess coa = new Coaccess(uar, articles, usersToTest, useCompact, n);
+	Coaccess coa = new Coaccess(uar, articles, usersToTest, useCompact, useStructure, indexDir, n);
 	Profiler.profiler.push(Profiler.Code.OTHER);
 	if (inc) {
 	    if (hours==0) {

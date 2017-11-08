@@ -5,7 +5,13 @@ import java.util.*;
 
 import org.apache.commons.lang.mutable.*;
 
-/** This class is used to find out which elements of the coaccess matrix need to be kept.
+/** This application is used to find out which elements of the
+    coaccess matrix need to be kept. The structure it creates is an
+    index describing the position of all matrix elements that need to
+    be kept during the coaccess matrix "pseudo-real time" computation
+    because at some time during the system's life they may be
+    within the top n elements, or may be "candidates" for the top n.
+   
 */
 public class PredictStructure extends Coaccess {
 
@@ -65,8 +71,10 @@ public class PredictStructure extends Coaccess {
 	}
 
 	reportStructure(false);
-	if (willWrite) writeIndex();
-
+	if (willWrite) {
+	    IndexFiles fi = new IndexFiles(indexDir);
+	    fi.writeIndex(this);
+	}
 
     }
 
@@ -93,106 +101,138 @@ public class PredictStructure extends Coaccess {
 	System.out.println("For all " + articles.size() + " articles, keep " + sumKept + " coaccess matrix elements out of " + sumAll);
     }
 
-    ObjectRandomAccessFile structureRAF, 	structureIndexRAF;
-
-    /** Locations of the index files */
+    /** Tools for reading and writing to the structure index files */
     static class IndexFiles {
+	/** Index file location */
 	File structureFile, structureIndexFile;
+	/** @param outdir The directory where the index files are (or will be) */
 	IndexFiles(File outdir) {
 	    structureFile = new File(outdir, "structure.dat");
 	    structureIndexFile = new File(outdir, "structureIndex.dat");
 	}
-    }
-
-    /** Opens the random access files for the structure index */
-    void openFiles(File outdir, String mode) throws IOException {
-	IndexFiles fi = new IndexFiles(outdir);
-	structureRAF=new  ObjectRandomAccessFile(fi.structureFile,mode, Integer.SIZE/8);
-
-	structureIndexRAF=new ObjectRandomAccessFile(fi.structureIndexFile,mode, Integer.SIZE/8);
-    }
-
-    void closeFiles() throws IOException {
-	structureRAF.close();
-	structureIndexRAF.close();
-    }
-
-    boolean indexExists(File outdir )  throws IOException {
-	IndexFiles fi = new IndexFiles( outdir);
-	return fi.structureFile.exists() && fi.structureIndexFile.exists();
-    }
-
-    /** We expect the structure index file contains a1+1 values (the
-	last one, pointer to the place where more data are to be
-	written), and the structure file, to contain appropriate
-	matrix elements.	
-     */
-    boolean olderIndexDataExist( int a1, boolean canRewrite)  throws IOException {
-	if (a1<0) throw new IllegalArgumentException();
-
-	if (a1==0 && !indexExists(indexDir)) return true;
-
-	openFiles(indexDir,"r");
-	try {
-	int len = (int)structureIndexRAF.lengthObject();
-	if (!canRewrite && len!=a1+1) {
-	    System.out.println("Structure index file size mismatch: expected " 
-			       + a1 + " values, found " + len);
-	    return false;
+	/** Do both files exist already? */
+	boolean indexExists()  throws IOException {
+	    return structureFile.exists() && structureIndexFile.exists();
 	}
-	if (a1==0) return true;
-	structureIndexRAF.seekObject(a1-1);
-	int b1 = (int)structureIndexRAF.readInt();
-	int b2 = (int)structureIndexRAF.readInt();
+    
+	ObjectRandomAccessFile structureRAF, 	structureIndexRAF;
+   
+	/** Opens the random access files for the structure index */
+	void openFiles(String mode) throws IOException {
+	    structureRAF=new ObjectRandomAccessFile(structureFile,mode, Integer.SIZE/8);
+	    
+	    structureIndexRAF=new ObjectRandomAccessFile(structureIndexFile,mode, Integer.SIZE/8);
+	}
 
-	len =  (int)structureRAF.lengthObject();
+	void closeFiles() throws IOException {
+	    structureRAF.close();
+	    structureIndexRAF.close();
+	}
 
-	structureRAF.seekObject(b1);
-	int [] data = new int[b2-b1];
-	for(int j=0; j<data.length; j++) {
-	    data[j] = structureRAF.readInt();
-	    if (j>0 && data[j]<= data[j-1]) {
-		System.out.println("Structure data not in order: V["+a1+"]["+(j-1)+"]="+data[j-1]+" >=  V["+a1+"]["+j+"]="+data[j]);
-		return false;
+ 
+	/** Checks if the structure index file and data file exist,
+	    and contain the data for the first a1 rows of the coaccess
+	    matrix. This method can be called before we start generating
+	    row No. a1, in order to check that the structure index
+	    file contains exactly a1+1 pointers (pointing to the
+	    beginnings of the existing a1 rows numbered 0 thru (a1-1),
+	    and to the beginning of row a1 which is to be created
+	    now), and the structure data file contains the data for
+	    row a1-1.
+
+	    <P>
+	    We expect the structure index file to contain a1+1 values (the
+	    last one, pointer to the place where more data are to be
+	    written), and the structure file, to contain the appropriate
+	    matrix elements for row No. a1-1
+
+	    @param canRewrite If true, we'll ignore the fact that the
+	    index contains <em>more</em> data than needed. (It is assumed
+	    that the caller intends to rewrite the "extra"  data later).
+	    Otherwise, the expectation is that the index contains the
+	    data for exactly a1-1 matrix rows.
+
+	    @return true, if all expected data are in place (or
+	    if a1==0, and there is still no index). false if the index
+	    looks "strange" in some way.
+
+	*/
+	boolean olderIndexDataExist(int a1, boolean canRewrite) throws IOException {
+	    if (a1<0) throw new IllegalArgumentException();
+	    
+	    if (a1==0 && ! indexExists()) return true;
+	    
+	    openFiles("r");
+	    try {
+		int len = (int)structureIndexRAF.lengthObject();
+		if (!canRewrite && len!=a1+1) {
+		    System.out.println("Structure index file size mismatch: expected " 
+				       + a1 + " values, found " + len);
+		    return false;
+		}
+		if (a1==0) return true;
+		len =  (int)structureRAF.lengthObject();
+
+		int[] data = readRow(a1-1);
+		for(int j=0; j<data.length; j++) {
+		    if (j>0 && data[j]<= data[j-1]) {
+			System.out.println("Structure data for row No. "+(a1-1)+" not in order: key["+a1+"]["+(j-1)+"]="+data[j-1]+" >= key["+a1+"]["+j+"]="+data[j]);
+			return false;
+		    }
+		}
+		return true; // everything in place
+	    } finally {
+		closeFiles();
 	    }
 	}
-	return true;
-	} finally {
-	    closeFiles();
-	}
-    }
     
-    void writeIndex()  throws IOException {
-	openFiles(indexDir,"rw");
-	int end=0;
-	for(int i=0; i<articles.size(); i++) {
-	    int aid=articles.elementAt(i);
-	    if (i>0 && aid-1!=articles.elementAt(i-1)) throw new IllegalArgumentException("Articles list is not contiguous");
-	    if (aid==0) { // write start position
+	void writeIndex(PredictStructure ps)  throws IOException {
+	    openFiles("rw");
+	    int end=0;
+	    for(int i=0; i<ps.articles.size(); i++) {
+		int aid=ps.articles.elementAt(i);
+		if (i>0 && aid-1!=ps.articles.elementAt(i-1)) throw new IllegalArgumentException("Articles list is not contiguous");
+		if (aid==0) { // write start position
 		structureIndexRAF.seekObject(aid);	
 		structureIndexRAF.writeInt(0);		
-	    }
-	    structureIndexRAF.seekObject(aid);	
-	    final int start = structureIndexRAF.readInt();
-	    structureRAF.seekObject(start);
+		}
+		structureIndexRAF.seekObject(aid);	
+		final int start = structureIndexRAF.readInt();
+		structureRAF.seekObject(start);
+		
+		if (i==0) {
+		    System.out.println("Start writing, at " + start + " values mark"); 
+		}
 
-	    if (i==0) {
-		System.out.println("Start writing, at " + start + " values mark"); 
-	    }
 
+		CAACompact2 caa = (CAACompact2)ps.aSet.get(aid);
+		for(int k: caa.allTimeCandidates) {
+		    structureRAF.writeInt(k);
+		}
+		end = start + caa.allTimeCandidates.size();
+		structureIndexRAF.seekObject(aid+1);	
+		structureIndexRAF.writeInt(end);		   
+	    }	    
+	    System.out.println("Reported structure index file size=" + structureIndexRAF.length() + " bytes = " +  structureIndexRAF.lengthObject() + " values");
+	    System.out.println("Reported structure index file size=" + structureRAF.length() + " bytes = " +  structureRAF.lengthObject() + " values");
+	    closeFiles();
+	    System.out.println("Done writing; structure file ends at " + end + " values mark"); 
+	    
+	}
 
-	    CAACompact2 caa = (CAACompact2)aSet.get(aid);
-	    for(int k: caa.allTimeCandidates) {
-		structureRAF.writeInt(k);
+	/** Reads one precomputed row of the data structure from an already
+	    opened file */
+	int[] readRow(int aid) throws IOException {
+	    structureIndexRAF.seekObject(aid);
+	    int b1 = (int)structureIndexRAF.readInt();
+	    int b2 = (int)structureIndexRAF.readInt();			
+	    structureRAF.seekObject(b1);
+	    int [] data = new int[b2-b1];
+	    for(int j=0; j<data.length; j++) {
+		data[j] = structureRAF.readInt();
 	    }
-	    end = start + caa.allTimeCandidates.size();
-	    structureIndexRAF.seekObject(aid+1);	
-	    structureIndexRAF.writeInt(end);		   
-	}	    
-	System.out.println("Reported structure index file size=" + structureIndexRAF.length() + " bytes = " +  structureIndexRAF.lengthObject() + " values");
-	System.out.println("Reported structure index file size=" + structureRAF.length() + " bytes = " +  structureRAF.lengthObject() + " values");
-	closeFiles();
-	System.out.println("Done writing; structure file ends at " + end + " values mark"); 
+	    return data;
+	}
 
     }
 
@@ -281,7 +321,7 @@ public class PredictStructure extends Coaccess {
 	PredictStructure coa = new PredictStructure(uar, articles, n);
 
 	if (willWrite) {
-	    if (!coa.olderIndexDataExist(articles.elementAt(0), canRewrite)) {
+	    if (!(new IndexFiles(indexDir)).olderIndexDataExist(articles.elementAt(0), canRewrite)) {
 		System.out.println("Can't do writing to index - the files with older data for a<" +articles.elementAt(0) + " don't exist or have unexpected size");
 		System.exit(1);
 	    }

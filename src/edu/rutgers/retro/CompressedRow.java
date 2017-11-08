@@ -153,7 +153,38 @@ class CompressedRow  {
 	//	validate("pack()");
 	Profiler.profiler.pop(Profiler.Code.CRS_add);
 	return drop;
-     }
+    }
+
+    /** Addition to a fixed-structure vector. Values that are 
+	not in "allowed" positions are ignored. Since the structure
+	is fixed, no re-allocation is needed, and the addition is
+	carried out in place.
+	<p>
+	Also checked if the vector has changed so much that it may affect
+	the candidate list.
+	@param x Vector to add. 
+ */
+    boolean add1fixed(CompressedRow x, boolean drop, int threshold) {
+	Profiler.profiler.push(Profiler.Code.CRS_add);
+	int ia=0, ib=0;
+	while(ia<keysCnt && ib<x.keysCnt) {
+	    if ( keys[ia]< x.keys[ib] ) {
+		ia++;
+	    } else if ( keys[ia] >  x.keys[ib] ) {		
+		// Just ignore an "inconvenient" value
+		ib++;
+	    } else { // key equality; the only place where addition happens
+		int val0 = values[ia];
+		values[ia] += x.values[ib];
+		drop = drop || (val0 < threshold) && (values[ia] >= threshold);
+		ia++; ib++;
+	    }
+	}
+	//	validate("add1fixed()");
+	Profiler.profiler.pop(Profiler.Code.CRS_add);
+	return drop;
+    }
+
 
     int findKey(int key) {
  	Profiler.profiler.push(Profiler.Code.CRS_find);

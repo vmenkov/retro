@@ -8,8 +8,36 @@ import org.apache.commons.lang.mutable.*;
 /** Sparse implementation of CAAList: storing one row of the coaccess matrix */
 class CAACompact extends CompressedRow   implements CAAList {
     
-    CAACompact() { super(0); }
+    /** The usual constructor */
+    CAACompact() { 
+	super(0); 
+	fixedStructure = false;
+    }
 
+    /** Reads the structure from index file, if available.
+	@param fi Access to data files (which should be already opened)
+     */
+    CAACompact(PredictStructure.IndexFiles fi, int j) { 
+	super(0); 
+	boolean found=false;
+	try {
+	    keys = fi.readRow(j);
+	    values = new int[keysCnt=keys.length];
+	    found = true;
+	    ones=new int[0]; // won't be needed anymore
+	} catch(IOException ex) {}
+	fixedStructure = found;
+    }
+
+    /** If this flag is true, the vector's structure (positions where
+	non-zero values are allowed), precomputed by PredictStructure,
+	has been read in from the structure files in the constructor. 
+	After that, the structure won't change, and new values added 
+	outside of the allowed positions will be discarded, because
+	we know that these positions will never enter the top n
+	(or even the candidate list for the top n).
+    */
+    final boolean fixedStructure;
     int onesCnt=0;
     int[] ones = new int[100];
 
@@ -37,7 +65,8 @@ class CAACompact extends CompressedRow   implements CAAList {
 
 
     /** Adds a single-component vector (x[j]=inc) to this vector. Either 
-	increments an existing component in CRS, or adds an element to ones[].
+	increments an existing component in CRS, or adds an element to ones[]
+	(unless fixedStructure is in effect).
      */
     public void addValue(final int j, int inc) {
 	
@@ -46,6 +75,8 @@ class CAACompact extends CompressedRow   implements CAAList {
 	    int val0 = values[k];
 	    values[k] += inc;
 	    if (hasCandidates && val0 < threshold && values[k]>=threshold) dropCandidates2(j);
+	} else if (fixedStructure) {
+	    // just ignore an out-of-structure element!
 	} else if (keysCnt<keys.length && j>keys[keysCnt-1]) {
 	    keys[keysCnt]=j;
 	    values[keysCnt]=inc;
@@ -85,8 +116,12 @@ class CAACompact extends CompressedRow   implements CAAList {
     int[] candidates=null;
     boolean hasCandidates=false;
     /** The candidate array should include all indexes whose values are &ge; threshold */
-    int threshold=0;
+    int threshold=1;
 
+    /** The number of "occupied spaces". If fixedStructure is in effect,
+	this is simply the size of this fixed structure; otherwise,
+	it is &ge; the actual number of non-zeros.
+     */
     public int size() { return keysCnt + onesCnt; }
 
 
@@ -123,10 +158,11 @@ class CAACompact extends CompressedRow   implements CAAList {
 	int m;
 	if (ecnt < n) { // save them all. 
 	    m = n = ecnt;
-	    threshold = 0; // any new component will become a new candidate!
+	    threshold = 1; // any new component will become a new candidate!
 	} else {   // How many candidates do we need to save?
 	    m = n;
 	    threshold = entries[n-1].val-1;
+	    if (threshold==0) threshold = 1;
 	    while(m < ecnt && entries[m].val >= threshold) m++;
 	}
 	//	if (threshold != ot) System.out.println("Threshold changed: " + ot + " to " + threshold + " (|cc|="+m+")");
@@ -251,12 +287,6 @@ class CAACompact extends CompressedRow   implements CAAList {
   	Arrays.sort(entries);
 	if (entries.length < n) n = entries.length;
 
-	/*
-	for(int i=0;i<entries.length; i++) {
-	    if (i>0 && entries[i].val >entries[i-1].val) throw new AssertionError("T2: After s<orting, values are not in descending order! i=" +i);
-	    if(entries[i].val==0) throw new AssertionError("T2: After sorting, zero value found! i=" +i);
-	}
-	*/
 
 	int a[] = new int[n];
 	for(int i=0; i<n; i++) a[i] = entries[i].key;
@@ -270,12 +300,17 @@ class CAACompact extends CompressedRow   implements CAAList {
 	if (!(_incrementMap instanceof CAAHashMap)) throw new IllegalArgumentException();
 	CAAHashMap incrementMap = (CAAHashMap)_incrementMap;
 	pack();
-	// FIXME: need threshold management
-	if (!hasCandidates) 	add(new CompressedRow(incrementMap));
-	else {
-	    boolean drop= add1(new CompressedRow(incrementMap),false,threshold);
-	    if (drop) dropCandidates();
+	boolean drop=!hasCandidates;
+	if (fixedStructure) {
+	    drop= add1fixed(new CompressedRow(incrementMap),drop,threshold);
+	} else {
+	    if (!hasCandidates) 	add(new CompressedRow(incrementMap));
+	    else {
+		drop= add1(new CompressedRow(incrementMap),drop,threshold);
+	    }
 	}
+	if (hasCandidates && drop) dropCandidates();
+
     }
 
     public Set<Integer> keySet() {
@@ -295,6 +330,7 @@ class CAACompact extends CompressedRow   implements CAAList {
 
     /** The C-norm of a vector represented by ones[] */
     int maxValueInOnes() {
+	if (onesCnt==0) return 0;
 	Arrays.sort(ones, 0, onesCnt);
 	int max = 0;
 	int startJ = 0;
