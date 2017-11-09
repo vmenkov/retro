@@ -171,7 +171,9 @@ public class PredictStructure extends Coaccess {
 		    return false;
 		}
 		if (a1==0) return true;
-		len =  (int)structureRAF.lengthObject();
+		len = canRewrite?
+		    (int)structureRAF.lengthObjectLenient() :
+		    (int)structureRAF.lengthObject();
 
 		int[] data = readRow(a1-1);
 		for(int j=0; j<data.length; j++) {

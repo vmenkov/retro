@@ -23,6 +23,13 @@ public class ObjectRandomAccessFile extends RandomAccessFile {
 	seek(length());
     }
 
+    /** Staff happens... */
+    final long lengthObjectLenient()  throws IOException {
+ 	long len = length();
+	if (len % sizeof != 0) System.out.println("Warning: File size="+len+" is not a multiple of object size (" + sizeof +")");
+	return len / sizeof;
+   }
+
   /** @return File length, measured in units of object size (rather than in bytes) */
     final long lengthObject()  throws IOException {
 	long len = length();
