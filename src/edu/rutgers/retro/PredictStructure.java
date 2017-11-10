@@ -3,7 +3,6 @@ package edu.rutgers.retro;
 import java.io.*;
 import java.util.*;
 
-import org.apache.commons.lang.mutable.*;
 
 /** This application is used to find out which elements of the
     coaccess matrix need to be kept. The structure it creates is an
@@ -121,7 +120,7 @@ public class PredictStructure extends Coaccess {
 	void openFiles(String mode) throws IOException {
 	    structureRAF=new ObjectRandomAccessFile(structureFile,mode, Integer.SIZE/8);
 	    
-	    structureIndexRAF=new ObjectRandomAccessFile(structureIndexFile,mode, Integer.SIZE/8);
+	    structureIndexRAF=new ObjectRandomAccessFile(structureIndexFile,mode, Long.SIZE/8);
 	}
 
 	void closeFiles() throws IOException {
@@ -188,18 +187,21 @@ public class PredictStructure extends Coaccess {
 	    }
 	}
     
+	/** Saves the newly generated structure information into this index.
+	    @param ps contains the matrix structure data to be stored
+	*/
 	void writeIndex(PredictStructure ps)  throws IOException {
 	    openFiles("rw");
-	    int end=0;
+	    long end=0;
 	    for(int i=0; i<ps.articles.size(); i++) {
 		int aid=ps.articles.elementAt(i);
 		if (i>0 && aid-1!=ps.articles.elementAt(i-1)) throw new IllegalArgumentException("Articles list is not contiguous");
 		if (aid==0) { // write start position
-		structureIndexRAF.seekObject(aid);	
-		structureIndexRAF.writeInt(0);		
+		    structureIndexRAF.seekObject(aid);	
+		    structureIndexRAF.writeLong(0);		
 		}
 		structureIndexRAF.seekObject(aid);	
-		final int start = structureIndexRAF.readInt();
+		final long start = structureIndexRAF.readLong();
 		structureRAF.seekObject(start);
 		
 		if (i==0) {
@@ -213,7 +215,7 @@ public class PredictStructure extends Coaccess {
 		}
 		end = start + caa.allTimeCandidates.size();
 		structureIndexRAF.seekObject(aid+1);	
-		structureIndexRAF.writeInt(end);		   
+		structureIndexRAF.writeLong(end);		   
 	    }	    
 	    System.out.println("Reported structure index file size=" + structureIndexRAF.length() + " bytes = " +  structureIndexRAF.lengthObject() + " values");
 	    System.out.println("Reported structure index file size=" + structureRAF.length() + " bytes = " +  structureRAF.lengthObject() + " values");
@@ -226,10 +228,10 @@ public class PredictStructure extends Coaccess {
 	    opened file */
 	int[] readRow(int aid) throws IOException {
 	    structureIndexRAF.seekObject(aid);
-	    int b1 = (int)structureIndexRAF.readInt();
-	    int b2 = (int)structureIndexRAF.readInt();			
+	    long b1 = structureIndexRAF.readLong();
+	    long b2 = structureIndexRAF.readLong();			
 	    structureRAF.seekObject(b1);
-	    int [] data = new int[b2-b1];
+	    int [] data = new int[(int)(b2-b1)];
 	    for(int j=0; j<data.length; j++) {
 		data[j] = structureRAF.readInt();
 	    }
