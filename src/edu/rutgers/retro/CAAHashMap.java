@@ -86,14 +86,16 @@ class CAAHashMap extends HashMap<Integer,MutableInt> implements CAAList {
 	and smaller positive values of non-zeros, than the non-modified row.
 	@param incrementMap The only expected increment values are -1
      */
-    public int topCAAHaveChanged(int n, final CAAList incrementMap) {
+    public int topCAAHaveChanged(int n, final CAAList incrementMap, int cutoff) {
 	if (candidates==null) throw new AssertionError("This method can only be called after toCAA(n) has been called");
 	if (n>candidates.length) n=candidates.length;
 	if (n==0) return -1;
 	int last=0, ilast=0;
 	for(int i=0; i<candidates.length; i++) {
-	    int x= getValue(candidates[i])+incrementMap.getValue(candidates[i]);
-	    if (i<n && x==0) return i;
+	    int x= getValue(candidates[i]);
+	    if (x<cutoff) break;
+	    x += incrementMap.getValue(candidates[i]);
+	    if (i<n && x<cutoff) return i;
 	    if (i>0) {
 		if (x>last) return ilast;
 		if (x==last && candidates[i]<candidates[ilast])  return ilast;

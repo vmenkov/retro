@@ -35,12 +35,19 @@ class CAACompact extends CompressedRow   implements CAAList {
 	After that, the structure won't change, and new values added 
 	outside of the allowed positions will be discarded, because
 	we know that these positions will never enter the top n
-	(or even the candidate list for the top n).
+	(or even the candidate list for the top n).  This means that if
+	fixedStructure=true, the array ones[] won't be used at all,
+	and onesCnt will stay 0.
     */
     final boolean fixedStructure;
+    /** The number of actually used elements in ones[]. */
     int onesCnt=0;
+    /** The keys of newly added values, still not incorporated into
+      keys[] and values[]. These keys are not orderd. The values are
+       all 1s, and are not explicitly stored.    */
     int[] ones = new int[100];
 
+    /** Used in debugging */
     void validate(String msg) {
 	super.validate(msg);
     }
@@ -193,33 +200,38 @@ class CAACompact extends CompressedRow   implements CAAList {
 	row), which means that the modified row will have fewer non-zeros,
 	and smaller positive values of non-zeros, than the non-modified row.
 
-	@param incrementMap The only expected increment values are -1
+	@param n the top-n lists are being compared
+	@param incrementMap The only expected increment values are -1, so we know that the "incremented" values are &le; than the original ones.
+	@param cutoff Only documents with scores &ge; cutoff  are included into the top-n vector. Docs with lower scores are "invisible". If cutoff=1, no documents are ignored due to low scores
 	@return the (zero-based) position of the first changed element,
 	or -1 if there are no changes within the top 10 elements.
      */
-    public int topCAAHaveChanged(int n, final CAAList incrementMap) {
+    public int topCAAHaveChanged(int n, final CAAList incrementMap, int cutoff) {
+	if (cutoff < 1) throw new IllegalArgumentException("Expect cutoff>=1");
 	if (!hasCandidates) throw new AssertionError("This method can only be called after toCAA(n) has been called");
 	Profiler.profiler.push(Profiler.Code.COA_check);
 	try {
 	    pack(); // FIXME: what if pack() drops candidates[]?
-	if (n>candidates.length) n=candidates.length;
-	if (n==0) return -1;
-	int last=0, ilast=0;
-	for(int i=0; i<candidates.length; i++) {
-	    int x= getValue(candidates[i])+incrementMap.getValue(candidates[i]);
-	    if (i<n && x==0) return i;
-	    if (i>0) {
-		if (x>last) return ilast;
-		if (x==last && candidates[i]<candidates[ilast])  return ilast;
+	    if (n>candidates.length) n=candidates.length;
+	    if (n==0) return -1;
+	    int last=0, ilast=0;
+	    for(int i=0; i<candidates.length; i++) {		
+		int x= getValue(candidates[i]);
+		if (x < cutoff) break;
+		x += incrementMap.getValue(candidates[i]);
+		if (i<n && x<cutoff) return i;
+		if (i>0) {
+		    if (x>last) return ilast;
+		    if (x==last && candidates[i]<candidates[ilast])  return ilast;
+		}
+		if (i<n) {
+		    last = x;
+		    ilast = i;
+		}
 	    }
-	    if (i<n) {
-		last = x;
-		ilast = i;
-	    }
-	}
-	return -1;
+	    return -1;
 	} finally {
-	Profiler.profiler.pop(Profiler.Code.COA_check);
+	    Profiler.profiler.pop(Profiler.Code.COA_check);
 	}
     }
 

@@ -203,7 +203,7 @@ public class Coaccess {
 		    }
 
 		    boolean visibleNow = false;
-		    int changePos = caa.topCAAHaveChanged(n, cab);
+		    int changePos = caa.topCAAHaveChanged(n, cab, cutoff);
 		    Profiler.profiler.replace(Profiler.Code.COA_analyze_2,
 					      Profiler.Code.COA_analyze_3);
 		    if (changePos>=0) {
@@ -455,6 +455,8 @@ public class Coaccess {
 	}
     }
 
+    static int cutoff=1;
+
     
     static public void main(String argv[]) throws IOException {
 	ParseConfig ht = new ParseConfig();
@@ -473,6 +475,8 @@ public class Coaccess {
 
 	// The number of top articles that are displayed as rec list 
 	final int n = ht.getOption("n", 10);
+	// ignore smaller values than this when selecting top n
+	cutoff = ht.getOption("cutoff", cutoff);
 	
 	System.out.println("Incremental mode=" + inc +
 			   (inc? ", with step=" + hours + " hrs": ""));
@@ -482,8 +486,8 @@ public class Coaccess {
 	Vector<Integer> usersToTest = new Vector<Integer>();
 
 	System.out.println("Compact data format=" + useCompact);
-	System.out.println("Use structure=" + useStructure);
-
+	System.out.println("Use precomputed structure=" + useStructure);
+	System.out.println("n=" + n+", cutoff=" + cutoff);
        
 	int ja=0;
 	String cmd = argv[ja++];

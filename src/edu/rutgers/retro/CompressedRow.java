@@ -158,7 +158,7 @@ class CompressedRow  {
     /** Addition to a fixed-structure vector. Values that are 
 	not in "allowed" positions are ignored. Since the structure
 	is fixed, no re-allocation is needed, and the addition is
-	carried out in place.
+	carried out in plac.e
 	<p>
 	Also checked if the vector has changed so much that it may affect
 	the candidate list.

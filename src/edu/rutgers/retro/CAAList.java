@@ -33,7 +33,7 @@ interface CAAList {
     Set<Integer> keySet();
 
 
-    int topCAAHaveChanged(int n, final CAAList incrementMap);
+    int topCAAHaveChanged(int n, final CAAList incrementMap, int cutoff);
     boolean topCAAHaveChangedDebug(int n, final CAAList incrementMap);
     /** nnz */
     int size();

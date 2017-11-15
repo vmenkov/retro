@@ -3,7 +3,9 @@ package edu.rutgers.retro;
 import java.io.*;
 import java.util.*;
 
-/** An auxiliary utility for converting a file of int into a file of long */
+/** An auxiliary utility for converting a binary file of int values
+  into an equivalent file of long values. The output file will be
+  twice the size of the input file. */
 
 public class ConvertFile {
     
