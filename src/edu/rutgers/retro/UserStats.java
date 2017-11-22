@@ -70,13 +70,17 @@ public class UserStats {
 	final static int[] maxCntWindow = {20, 60};
 	HistoryWindow historyWindow[] = new HistoryWindow[windowSizes.length];
 
+	private void initHW() {
+	    for(int i=0; i<windowSizes.length; i++) {
+		historyWindow[i] = new HistoryWindow(windowSizes[i], maxCntWindow[i]);
+	    }
+	}
+
 	UserInfo(String _uid, int utc, String _userAgent) {
 	    uid = _uid;
 	    utc0 = utc1 = utc;
 	    userAgent =	_userAgent;
-	    for(int i=0; i<windowSizes.length; i++) {
-		historyWindow[i] = new HistoryWindow(windowSizes[i], maxCntWindow[i]);
-	    }
+	    initHW();
 	    windowCntTest(utc);
 	}
 	void add(int utc, String _userAgent) {
@@ -102,6 +106,44 @@ public class UserStats {
 	public int compareTo(UserInfo x) {
 	    return -(cnt - x.cnt);
 	}
+
+	/** Formats this object's content into a format suitable for
+	    printing into a CSV file.
+
+	    Example:
+
+411,"6421f7346b2d","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/603.3.8 (KHTML, like Gecko)",1,1504224653,1504569342,true,false,411,true,60
+
+
+ */
+	String toStringCSV() {
+	    String s = "" + cnt + ",\"" + uid+ "\",\""+ userAgent+"\"," + 
+		(userAgentsVary? 1:0) +"," + utc0 +","+utc1 +","+
+		excludeFromNowOn;
+	    for(HistoryWindow hw: historyWindow) {
+		s += "," + hw.rejected +"," + hw.acceptCnt;
+	    }
+	    return s;
+	}
+
+	/** Restores an object from a CSV record */
+	UserInfo(String [] q) {
+	    
+	    int j=0;
+	    cnt = Integer.parseInt(q[j++]);
+	    uid = q[j++];
+	    userAgent = q[j++];
+	    userAgentsVary = (Integer.parseInt(q[j++])!=0);
+	    utc0 = Integer.parseInt(q[j++]);
+	    utc1 = Integer.parseInt(q[j++]);
+	    excludeFromNowOn = Boolean.parseBoolean(q[j++]);
+	    initHW();
+	    for(HistoryWindow hw: historyWindow) {
+		hw.rejected = Boolean.parseBoolean(q[j++]);
+		hw.acceptCnt =  Integer.parseInt(q[j++]);
+	    }
+	}
+
     }
 
     HashMap<String, UserInfo> allUsers = new HashMap<String, UserInfo>();
@@ -170,7 +212,6 @@ public class UserStats {
 
     }
 
-
     /** Writes info about all users, except single-article ones, to a CSV file */
     void save(File f) throws IOException {
 	PrintWriter w = new PrintWriter(new FileWriter(f));
@@ -178,13 +219,7 @@ public class UserStats {
 	Arrays.sort(users);
 	for(int i=0; i<users.length; i++) {
 	    UserInfo u = users[i];
-	    w.print("" + u.cnt + ",\"" + u.uid+ "\",\""+ u.userAgent+"\"," + 
-		      (u.userAgentsVary? 1:0) +"," + u.utc0 +","+u.utc1 +","+
-		    u.excludeFromNowOn);
-	    for(HistoryWindow hw: u.historyWindow) {
-		w.print("," + hw.rejected +"," + hw.acceptCnt);
-	    }
-	    w.println();
+	    w.println( u.toStringCSV());
 	}
 	w.close();
     }

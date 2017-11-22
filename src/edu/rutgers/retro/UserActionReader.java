@@ -52,7 +52,7 @@ public class  UserActionReader extends UserActionSaver {
 	return as;	
     }
 
-    /** All actions for the specified user */
+    /** Reads all actions for the specified user */
     ActionDetails[] actionsForUser(int uid)  throws IOException {
 	return someActionsForUser(uid, users[uid].total);
     }

@@ -10,3 +10,8 @@ https://stleary.github.io/JSON-java/
 
 cd lib
 ln -s /usr/local/apache-openjpa-2.1.1/lib/commons-lang-2.4.jar  .
+
+Apache Commons CSV library (package org.apache.commons.csv )
+
+https://commons.apache.org/proper/commons-csv/
+ln -s ../commons-csv-1.1/commons-csv-1.1.jar .

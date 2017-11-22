@@ -20,9 +20,9 @@ public class Coaccess {
     /** Users whose actions we want to test for "visibility" to others */
     final Vector<Integer> usersToTest;
     /** For each user of interest, this HashMap contains the PrivacyLog object,
-	with information about the visibility of this user's actions.
+	with information about the visibility of this user's actions. We use TreeMap (a sorted map) for prettier (ordered) display.
     */
-    final HashMap<Integer,PrivacyLog> utSet;
+    final TreeMap<Integer,PrivacyLog> utSet;
     /** The number of top articles that are displayed as rec list */
     final int n;
 
@@ -32,7 +32,7 @@ public class Coaccess {
 	articles = _articles;
 	usersToTest =  _usersToTest;
 	aSet = new HashMap<Integer,CAAList>();
-	utSet = new HashMap<Integer,PrivacyLog>();
+	utSet = new TreeMap<Integer,PrivacyLog>();
 	for(Integer uid: usersToTest) {
 	    utSet.put(uid, new PrivacyLog());
 	}
@@ -374,14 +374,28 @@ public class Coaccess {
 	    pos = coaccessIncrementalStep(pos, utc1);	    
 	}
 	reportTop();
+	System.out.println("Done reportTop");
+	privacyReport();
+	System.out.println("Done privacyReport");
+    }
+
+    void privacyReport() {
 
 	System.out.println("Privacy report");
+	int userCnt=0, sumActionCnt=0, sumVisibleActionCnt=0, sumChangedRecListCnt=0, sumRecListCnt=0;
 	for(Integer uid: utSet.keySet()) {
 	    PrivacyLog pLog = utSet.get(uid);
 	    System.out.println("For user " + uid + " ("+uar.userNameTable.nameAt(uid)+"), out of " + pLog.actionCnt + ", visible " + pLog.visisbleActionCnt + 
 			       " (" +pLog.changedRecListCnt+ " rec lists out of " +pLog.recListCnt +")");
-
+	    userCnt++;
+	    sumActionCnt += pLog.actionCnt;
+	    sumVisibleActionCnt +=pLog.visisbleActionCnt; 
+	    sumChangedRecListCnt +=pLog.changedRecListCnt;
+	    sumRecListCnt += pLog.recListCnt;
 	}
+	System.out.println("Totals for all " + userCnt + " users: out of " + sumActionCnt + " actions, visible " + sumVisibleActionCnt + 
+			       " (" +sumChangedRecListCnt+ " rec lists out of " +sumRecListCnt +")");
+	 
 
     }
 
@@ -445,7 +459,9 @@ public class Coaccess {
 	}
 
 	reportTop();
+	privacyReport();
 
+	/*
 	System.out.println("Privacy report");
 	for(Integer uid: utSet.keySet()) {
 	    PrivacyLog pLog = utSet.get(uid);
@@ -453,6 +469,7 @@ public class Coaccess {
 			       " (" +pLog.changedRecListCnt+ " rec lists out of " +pLog.recListCnt +")");
 
 	}
+	*/
     }
 
     static int cutoff=1;
@@ -505,11 +522,40 @@ public class Coaccess {
 		    uar.userNameTable.get(s);
 		usersToTest.add(uid);
 		ActionDetails[] as = uar.actionsForUser(uid);
-		System.out.println("For user " + uid + " ("+uar.userNameTable.nameAt(uid)+"), adding " + as.length + " articles" );
+		String uname = uar.userNameTable.nameAt(uid);
+		System.out.println("For user " +uid+ " ("+uname+"), adding " + as.length+ " articles" );
 		for(ActionDetails x: as) {
 		    articles.add(x.aid);
 		}
 	    }
+	} else if (cmd.equals("urange")) {  // (i=a1; i<a2; i+= a3)
+	    String s1 = argv[ja++];
+	    String s2 = argv[ja++];
+	    int uid1 =  Integer.parseInt(s1), uid2 =  Integer.parseInt(s2), step=1;
+	    if (ja < argv.length) {
+		step =  Integer.parseInt(argv[ja++]);
+	    }
+	    File usersCsvFile = new File(indexDir, "users.csv");
+	    UserStats.UserInfo[] uis = UserStatsReader.readUserList(usersCsvFile);
+	    HashMap<String, UserStats.UserInfo> uisMap = new HashMap<String, UserStats.UserInfo>();
+	    for(UserStats.UserInfo ui: uis) { uisMap.put( ui.uid, ui); }
+
+	    for(int uid=uid1; uid<uid2; uid+=step) {
+		String uname = uar.userNameTable.nameAt(uid);
+		if (uisMap.get(uname).excludeFromNowOn) {
+		    System.out.println("Exclduing high-activity user " + uid + " ("+uname+")");
+		    continue;
+		}
+
+		usersToTest.add(uid);
+		ActionDetails[] as = uar.actionsForUser(uid);
+		System.out.println("For user " + uid + " ("+uname+"), adding " + as.length + " articles" );
+		for(ActionDetails x: as) {
+		    articles.add(x.aid);
+		}
+	
+	    }
+    
 	} else {
 	    throw new IllegalArgumentException("Unknown command: " + cmd);
 	}
