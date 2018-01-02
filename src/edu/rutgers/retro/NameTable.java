@@ -30,7 +30,7 @@ class NameTable extends HashMap<String, Integer> {
 	addAll(v);
     }
 
-
+    /** Saves the list of names into a file, one name per line */
     void save(File f) throws IOException {
 	PrintWriter w = new PrintWriter(new FileWriter(f));
 	for(String x: names) {
