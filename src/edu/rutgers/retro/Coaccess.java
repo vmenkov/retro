@@ -168,8 +168,13 @@ public class Coaccess {
 	int visisbleActionCnt=0;
 	int recListCnt =0;
 	int changedRecListCnt =0;
+	/** For each article seen by this user: is it exposed via *any* action? */
+	TreeSet<Integer> visibleArticles = new TreeSet <Integer>();
+	int visisbleArticleCnt() { return visibleArticles.size(); }
 	/** Not yet analyzed actions, for this users, from the current incremental step */
 	Vector<MinusData> minusDataVec = new Vector<MinusData>();
+	/** Processes the actions listed in minusDataVec; then clears the vector
+	 */
 	void analyze() {
 	    if (minusDataVec.size()==0) return;
 	    Profiler.profiler.push(Profiler.Code.COA_analyze);
@@ -191,9 +196,10 @@ public class Coaccess {
 		Vector<int[]> visibleFrom = new Vector<int[]>();
 		Vector<Integer> affected = new Vector<Integer>();
 		Profiler.profiler.replace(Profiler.Code.COA_analyze_1, Profiler.Code.COA_analyze_23);
-		for(int aid: minusSet.keySet()) { // for each article whose coaccess vector this action has affected
+		for(int aid: minusSet.keySet()) { // for each article whose coaccess vector this action may have affected
 		    Profiler.profiler.push(Profiler.Code.COA_analyze_2);
 		    recListCnt++;
+		    
 		    CAAHashMap cab = minusSet.get(aid);
 		    CAAList caa = aSet.get(aid);
 
@@ -203,15 +209,42 @@ public class Coaccess {
 		    }
 
 		    boolean visibleNow = false;
-		    int changePos = caa.topCAAHaveChanged(n, cab, cutoff);
+
+		    CAAList.PromotedArticles promo = caa.topCaaChanges(n, cab, cutoff);
+
 		    Profiler.profiler.replace(Profiler.Code.COA_analyze_2,
 					      Profiler.Code.COA_analyze_3);
+		    if (!promo.isEmpty()) {
+			visibleArticles.add(aid);
+			int changePos = promo.firstChangedPos();
+			changedRecListCnt++;
+			visible = visibleNow =true;
+			//System.out.println("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " affected")
+			visibleFrom.add(new int[]{aid,changePos});
+			boolean bad=false;
+			for(int i=0; i<promo.size; i++) {
+			    int a = promo.aids[i];
+			    bad = bad || (aid!=actionAid && a!=actionAid);
+			    visibleArticles.add(a);
+			}
+			if (bad) {
+			    String msg="Very curious: actionAid=" + actionAid +", affecting L(aid=" + aid+"), but the actionAid is not among the promo list=" + promo;
+			    throw new AssertionError(msg);
+
+			}
+		    }
+
+
+		    /*
+		    int changePos = caa.topCaaHaveChanged(n, cab, cutoff);
 		    if (changePos>=0) {
 			changedRecListCnt++;
 			visible = visibleNow =true;
 			//System.out.println("Top CAA for A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + " affected")
 			visibleFrom.add(new int[]{aid,changePos});
 		    }
+		    */
+
 		    if (doubleCheck) doubleChecking(aid, caa, cab, visibleNow);	
 		    Profiler.profiler.pop(Profiler.Code.COA_analyze_3);
 		}
@@ -379,22 +412,26 @@ public class Coaccess {
 	System.out.println("Done privacyReport");
     }
 
+    /** Prints out an overall report for the run, with the statistics 
+	for each user */
     void privacyReport() {
 
 	System.out.println("Privacy report");
-	int userCnt=0, sumActionCnt=0, sumVisibleActionCnt=0, sumChangedRecListCnt=0, sumRecListCnt=0;
+	int userCnt=0, sumActionCnt=0, sumVisibleActionCnt=0, sumChangedRecListCnt=0, sumRecListCnt=0, sumVisibleArticleCnt=0;
 	for(Integer uid: utSet.keySet()) {
 	    PrivacyLog pLog = utSet.get(uid);
 	    System.out.println("For user " + uid + " ("+uar.userNameTable.nameAt(uid)+"), out of " + pLog.actionCnt + ", visible " + pLog.visisbleActionCnt + 
-			       " (" +pLog.changedRecListCnt+ " rec lists out of " +pLog.recListCnt +")");
+			       " actions or " + pLog.visisbleArticleCnt() + 
+			       " articles (" +pLog.changedRecListCnt+ " rec lists out of " +pLog.recListCnt +")");
 	    userCnt++;
 	    sumActionCnt += pLog.actionCnt;
 	    sumVisibleActionCnt +=pLog.visisbleActionCnt; 
+	    sumVisibleArticleCnt+=pLog.visisbleArticleCnt();
 	    sumChangedRecListCnt +=pLog.changedRecListCnt;
 	    sumRecListCnt += pLog.recListCnt;
 	}
 	System.out.println("Totals for all " + userCnt + " users: out of " + sumActionCnt + " actions, visible " + sumVisibleActionCnt + 
-			       " (" +sumChangedRecListCnt+ " rec lists out of " +sumRecListCnt +")");
+			       " actions or "+sumVisibleArticleCnt+" articles (" +sumChangedRecListCnt+ " rec lists out of " +sumRecListCnt +")");
 	 
 
     }

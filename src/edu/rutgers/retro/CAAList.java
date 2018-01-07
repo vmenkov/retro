@@ -32,8 +32,46 @@ interface CAAList {
     void add(CAAList incrementMap);   
     Set<Integer> keySet();
 
+    /** Describes the list of articles that have higher
+	(i.e. numerically smaller) ranks in the affected list
+	as compared to the un-affected list. These articles
+	an adversary who monitors the rec list can identify
+	as belonging to the observed user's history.
+     */
+    static class PromotedArticles {
+	/** How many positions are actually used in ranks[] and aids[] */
+	int size=0;
+	int[] ranks, aids; 
+	PromotedArticles(int n) {
+	    ranks = new int[n];
+	    aids = new int[n];
+	}
+	void add(int rank, int aid) {
+	    ranks[size] = rank;
+	    aids[size] = aid;
+	    size++;
+	}
+	boolean isEmpty() { return size==0; }
+	int firstChangedPos() {
+	    int m=-1;
+	    for(int i=0; i<size; i++) {
+		int r = ranks[i];
+		if (m<0 || r<m) m=r;
+	    }
+	    return m;
+	}
+	public String toString() {
+	    StringBuffer b = new StringBuffer("(");
+	    for(int i=0; i<size; i++) {
+		b.append(" " + ranks[i] + ":" + aids[i]);
+	    }
+	    b.append(")");
+	    return b.toString();
+	}
+    }
 
-    int topCAAHaveChanged(int n, final CAAList incrementMap, int cutoff);
+    PromotedArticles topCaaChanges(int n, final CAAList incrementMap, int cutoff);
+    int topCaaHaveChanged(int n, final CAAList incrementMap, int cutoff);
     boolean topCAAHaveChangedDebug(int n, final CAAList incrementMap);
     /** nnz */
     int size();

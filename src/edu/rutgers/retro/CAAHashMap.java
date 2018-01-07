@@ -86,7 +86,39 @@ class CAAHashMap extends HashMap<Integer,MutableInt> implements CAAList {
 	and smaller positive values of non-zeros, than the non-modified row.
 	@param incrementMap The only expected increment values are -1
      */
-    public int topCAAHaveChanged(int n, final CAAList incrementMap, int cutoff) {
+   public PromotedArticles topCaaChanges(int n, final CAAList incrementMap, int cutoff) {
+	if (cutoff < 1) throw new IllegalArgumentException("Expect cutoff>=1");
+	Profiler.profiler.push(Profiler.Code.COA_check);
+	PromotedArticles result= new PromotedArticles(n);
+	try {
+	    if (n>candidates.length) n=candidates.length;
+	    if (n==0) return result;
+	    int xlast=0, ilast=0;
+	    boolean haveLast = false;
+	    for(int i=candidates.length-1; i>=0; i--) {		
+		int x= getValue(candidates[i]);
+		if (x < cutoff) continue;	
+		x += incrementMap.getValue(candidates[i]);
+
+		boolean newHigh = !haveLast ||
+		    x>xlast || x==xlast && candidates[i]<candidates[ilast];
+		if (i<n) {
+		    if (x<cutoff || !newHigh) {
+			result.add( i, candidates[i]);
+		    } 
+		}
+		if (newHigh) {
+		    xlast = x;
+		    ilast = i;
+		}
+	    }
+	    return result;
+	} finally {
+	    Profiler.profiler.pop(Profiler.Code.COA_check);
+	}
+    }
+
+   public int topCaaHaveChanged(int n, final CAAList incrementMap, int cutoff) {
 	if (candidates==null) throw new AssertionError("This method can only be called after toCAA(n) has been called");
 	if (n>candidates.length) n=candidates.length;
 	if (n==0) return -1;
@@ -107,6 +139,7 @@ class CAAHashMap extends HashMap<Integer,MutableInt> implements CAAList {
 	}
 	return -1;
     }
+
 
    public boolean topCAAHaveChangedDebug(int n, final CAAList incrementMap) {
 	if (candidates==null) throw new AssertionError("This method can only be called after toCAA(n) has been called");

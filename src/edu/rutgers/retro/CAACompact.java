@@ -115,10 +115,13 @@ class CAACompact extends CompressedRow   implements CAAList {
     }
     
     /** This array may be created during the most recent topCAA(n)
-	call; it will contain the indexes for the top n values, as
-	well as those whose values are within 1 from those in the top n. 
-	When we study the effect of a small (up to 1) decrement on the top
-	values, it is sufficient to compare the candidates.
+	call; it will contain the indexes for the top n values (in the
+	order of descending values), as well as those whose values are
+	within 1 from those in the top n.  When we study the effect of
+	a small (up to 1) decrement on the top values, it is
+	sufficient to compare the candidates[], because only articles
+	listed in that array may enter the top n according to the
+	modified scores.
      */
     int[] candidates=null;
     boolean hasCandidates=false;
@@ -161,6 +164,7 @@ class CAACompact extends CompressedRow   implements CAAList {
 		entries[ecnt++] = new ME(key, getValue(key));
 	    }
 	}
+	// descendant sort by value; key (ascendant) used for tie-breaking
 	Arrays.sort(entries, 0, ecnt);
 	int m;
 	if (ecnt < n) { // save them all. 
@@ -203,13 +207,65 @@ class CAACompact extends CompressedRow   implements CAAList {
 	@param n the top-n lists are being compared
 	@param incrementMap The only expected increment values are -1, so we know that the "incremented" values are &le; than the original ones.
 	@param cutoff Only documents with scores &ge; cutoff  are included into the top-n vector. Docs with lower scores are "invisible". If cutoff=1, no documents are ignored due to low scores
-	@return the (zero-based) position of the first changed element,
-	or -1 if there are no changes within the top 10 elements.
+	@return A structure that indicates the (zero-based) positions
+	and IDs of all "visibly promoted" articles. in the rec list.
      */
-    public int topCAAHaveChanged(int n, final CAAList incrementMap, int cutoff) {
+    public PromotedArticles topCaaChanges(int n, final CAAList incrementMap, int cutoff) {
 	if (cutoff < 1) throw new IllegalArgumentException("Expect cutoff>=1");
 	if (!hasCandidates) throw new AssertionError("This method can only be called after toCAA(n) has been called");
 	Profiler.profiler.push(Profiler.Code.COA_check);
+
+	PromotedArticles result= new PromotedArticles(n);
+
+	try {
+	    pack(); // FIXME: what if pack() drops candidates[]?
+	    if (n>candidates.length) n=candidates.length;
+	    if (n==0) return result;
+	    int xlast=0, ilast=0;
+	    boolean haveLast = false;
+	    for(int i=candidates.length-1; i>=0; i--) {		
+		int x= getValue(candidates[i]);
+		if (x < cutoff) continue;	
+		x += incrementMap.getValue(candidates[i]);
+
+		boolean newHigh = !haveLast ||
+		    x>xlast || x==xlast && candidates[i]<candidates[ilast];
+
+		if (i<n) {
+		    if (x<cutoff || !newHigh) {
+			result.add( i, candidates[i]);
+		    } 
+		}
+
+		if (newHigh) {
+		    xlast = x;
+		    ilast = i;
+		}
+	    }
+	    return result;
+	} finally {
+	    Profiler.profiler.pop(Profiler.Code.COA_check);
+	}
+    }
+
+   /** Comparese the list of top n elements of this coaccess matrix row
+	with the list that would obtain if  incrementMap were to be 
+	added to it. incrementMap consists of negative value (representing
+	NOT including a particular action which is included in this 
+	row), which means that the modified row will have fewer non-zeros,
+	and smaller positive values of non-zeros, than the non-modified row.
+
+	@param n the top-n lists are being compared
+	@param incrementMap The only expected increment values are -1, so we know that the "incremented" values are &le; than the original ones.
+	@param cutoff Only documents with scores &ge; cutoff  are included into the top-n vector. Docs with lower scores are "invisible". If cutoff=1, no documents are ignored due to low scores
+	@return the (zero-based) position of the first changed element,
+	or -1 if there are no changes within the top 10 elements.
+     */
+  public int topCaaHaveChanged(int n, final CAAList incrementMap, int cutoff) {
+	if (cutoff < 1) throw new IllegalArgumentException("Expect cutoff>=1");
+	if (!hasCandidates) throw new AssertionError("This method can only be called after toCAA(n) has been called");
+	Profiler.profiler.push(Profiler.Code.COA_check);
+
 	try {
 	    pack(); // FIXME: what if pack() drops candidates[]?
 	    if (n>candidates.length) n=candidates.length;
@@ -219,10 +275,12 @@ class CAACompact extends CompressedRow   implements CAAList {
 		int x= getValue(candidates[i]);
 		if (x < cutoff) break;
 		x += incrementMap.getValue(candidates[i]);
-		if (i<n && x<cutoff) return i;
+		if (i<n && x<cutoff) {
+		    return i;
+		}
 		if (i>0) {
 		    if (x>last) return ilast;
-		    if (x==last && candidates[i]<candidates[ilast])  return ilast;
+		    if (x==last && candidates[i]<candidates[ilast]) return ilast;
 		}
 		if (i<n) {
 		    last = x;
@@ -234,6 +292,7 @@ class CAACompact extends CompressedRow   implements CAAList {
 	    Profiler.profiler.pop(Profiler.Code.COA_check);
 	}
     }
+
 
     public boolean topCAAHaveChangedDebug(int n, final CAAList incrementMap) {
 	if (!hasCandidates) throw new AssertionError("This method can only be called after toCAA(n) has been called");
@@ -265,6 +324,7 @@ class CAACompact extends CompressedRow   implements CAAList {
 	//	System.out.println("DEBUG: NO CHANGE");
 	return false;
     }
+
 
   
    /** Returns the n article IDs that have the highest counts
