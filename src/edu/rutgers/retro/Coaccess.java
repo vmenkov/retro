@@ -187,13 +187,15 @@ public class Coaccess {
 	    // end-of-step topCAA
 	    HashSet<Integer> testedAids = new HashSet<Integer>();
 	    Profiler.profiler.pop(Profiler.Code.COA_analyze_0);
-	    
+	    // for reporting: other articles (seen earlier) exposed now
+	    TreeSet<Integer> additionalExposedArticles = new TreeSet<Integer>();
 	    for(MinusData minusSet: minusDataVec) { // for each recent action of this user
 		Profiler.profiler.push(Profiler.Code.COA_analyze_1);
 		boolean visible=false;
 		int actionAid = minusSet.ad.aid;
 		if (minusSet.ad.uid != uid) throw new AssertionError();
 		Vector<int[]> visibleFrom = new Vector<int[]>();
+
 		Vector<Integer> affected = new Vector<Integer>();
 		Profiler.profiler.replace(Profiler.Code.COA_analyze_1, Profiler.Code.COA_analyze_23);
 		for(int aid: minusSet.keySet()) { // for each article whose coaccess vector this action may have affected
@@ -226,6 +228,9 @@ public class Coaccess {
 			    int a = promo.aids[i];
 			    bad = bad || (aid!=actionAid && a!=actionAid);
 			    visibleArticles.add(a);
+			    if (a!=actionAid) {
+				additionalExposedArticles.add(a);
+			    }
 			}
 			if (bad) {
 			    String msg="Very curious: actionAid=" + actionAid +", affecting L(aid=" + aid+"), but the actionAid is not among the promo list=" + promo;
@@ -261,6 +266,12 @@ public class Coaccess {
 			int rank=x[1];
 			System.out.print(" A["+aid+"]=" + uar.aidNameTable.nameAt(aid) + ":" + rank);
 		    }
+
+		    System.out.print(". Additionally, exposed articles: ");
+		    for(int aid: additionalExposedArticles) {
+			System.out.print(" A["+aid+"]=" + uar.aidNameTable.nameAt(aid));
+		    }
+
 		    System.out.println();
 		}
 		Profiler.profiler.pop(Profiler.Code.COA_analyze_reporting);
