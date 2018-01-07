@@ -240,6 +240,7 @@ class CAACompact extends CompressedRow   implements CAAList {
 		if (newHigh) {
 		    xlast = x;
 		    ilast = i;
+		    haveLast = true;
 		}
 	    }
 	    return result;
