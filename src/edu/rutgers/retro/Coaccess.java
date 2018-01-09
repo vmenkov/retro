@@ -12,25 +12,31 @@ public class Coaccess {
 
     /** Used to read data from the action index */
     UserActionReader uar;
-    /** This map has an entry for every article of interest */
+    /** The relevant section of the coaccess matrix. This map has an entry for every article of interest */
     final HashMap<Integer,CAAList> aSet;
     /** Articles of interest for this run (i.e. the articles for which
 	we want to compute rec lists) */
     final Vector<Integer> articles;
     /** Users whose actions we want to test for "visibility" to others */
     final Vector<Integer> usersToTest;
-    /** For each user of interest, this HashMap contains the PrivacyLog object,
-	with information about the visibility of this user's actions. We use TreeMap (a sorted map) for prettier (ordered) display.
+    /** For each user of interest, this map contains the PrivacyLog
+	object with summary information about the visibility of this
+	user's actions. We use TreeMap (a sorted map) for prettier
+	(ordered) display.
     */
     final TreeMap<Integer,PrivacyLog> utSet;
     /** The number of top articles that are displayed as rec list */
     final int n;
 
+    /**
+       @param _usersToTest We want to collect statistics about the visibility of the activity of these users.
+       @param n Rec lists will include the top n documents
+     */
     Coaccess(UserActionReader _uar, Vector<Integer> _articles,  Vector<Integer> _usersToTest, int _n) {
 	n = _n;
 	uar = _uar;
 	articles = _articles;
-	usersToTest =  _usersToTest;
+	usersToTest = _usersToTest;
 	aSet = new HashMap<Integer,CAAList>();
 	utSet = new TreeMap<Integer,PrivacyLog>();
 	for(Integer uid: usersToTest) {
@@ -342,7 +348,7 @@ public class Coaccess {
 
 	@return new start position in the action list
      */
-    int coaccessIncrementalStep(int pos0, int t1) throws IOException {
+    int coaccessIncrementalStep(int pos0, int t1, int windowSec) throws IOException {
 	System.out.println("Step ending at t=" + t1 +" ("+new Date((long)t1*1000L)+"); CA nnz=" + mapSize());
 	Profiler.profiler.push(Profiler.Code.COA_inc_other);
 	int pos = pos0;
@@ -360,11 +366,11 @@ public class Coaccess {
 	    boolean doMinus = utSet.containsKey(a.uid);
 	    MinusData minusSet = null;
 	    if (doMinus) minusSet = new MinusData(a);
-			
-	    if (user.ofInterest!=null) {  // update CAA for all articles of interest seen earlier by this user
+	    user.enableOfInterest(windowSec);
+	    if (!user.ofInterest.isEmpty()) {  // update CAA for all articles of interest seen earlier by this user
 		Profiler.profiler.push(Profiler.Code.COA_update_coa1);
 
-		for(int j: user.ofInterest) {
+		for(int j: user.ofInterest.listArticles(a.utc)) {
 		    bSet.get(j).addValue(a.aid, 1);
 		    if (doMinus) minusSet.add(j,a.aid, -1);
 		}
@@ -373,12 +379,13 @@ public class Coaccess {
 
 	    if (caa!=null) { // this is an article of interest
 		Profiler.profiler.push(Profiler.Code.COA_update_coa2);
-		if (user.ofInterest==null) user.ofInterest = new Vector<Integer>(2,4);
-		user.ofInterest.add(a.aid);
+		user.ofInterest.addAction(a);
 
 		CAAHashMap minusCaa = null;
 		if (doMinus) minusSet.put(a.aid, minusCaa=new CAAHashMap());
-		ActionDetails[] as = uar.earlyActionsForUser(a.uid);
+		ActionDetails[] as = (windowSec < 0)?
+		    uar.earlyActionsForUser(a.uid) :
+		    uar.recentActionsForUser(a.uid, a.utc-windowSec);
 		for(ActionDetails y: as) {	    
 		    caa.addValue(y.aid, 1);
 		    if (doMinus) minusCaa.addValue(y.aid, -1);
@@ -408,14 +415,14 @@ public class Coaccess {
 	used by the recommender being updated every stepSec seconds.
 	@param stepSec in seconds (e.g. 24*3600)
      */
-    void coaccessIncremental(int stepSec) throws IOException {
+    void coaccessIncremental(int stepSec, int windowSec) throws IOException {
 	int pos = 0;
 	final int utc0 = (uar.actionRAF.read(new ActionDetails(),pos).utc/stepSec) * stepSec;
 	final int len = (int)uar.actionRAF.lengthObject();
 	int utc1 = utc0;
 	while(pos<len) {
 	    utc1 += stepSec;
-	    pos = coaccessIncrementalStep(pos, utc1);	    
+	    pos = coaccessIncrementalStep(pos, utc1, windowSec);	    
 	}
 	reportTop();
 	System.out.println("Done reportTop");
@@ -448,7 +455,7 @@ public class Coaccess {
     }
 
     /** Emulates a recommender with immediately-updated coaccess data */
-    void coaccessImmediate() throws IOException {
+    void coaccessImmediate(int windowSec) throws IOException {
 
 	final int stepSec = 3600 * 24 * 7;
 	int nextPrintUtc = (uar.actionRAF.read(new ActionDetails(),0).utc/stepSec) * stepSec;
@@ -460,30 +467,34 @@ public class Coaccess {
 	for(PrivacyLog pLog: utSet.values()) pLog.minusDataVec.clear();
 
 	for(int pos = 0; pos<len; pos++) { // for all actions, ever
-
+	    // read an action into a
 	    uar.actionRAF.read(a,pos); 
 	    // the user who carried out this action
 	    UserActionReader.UserEntry user = uar.users[a.uid];
 	    CAAList caa = aSet.get(a.aid); 
-
+	    // do we need to collect privacy stats for this user?
 	    boolean doMinus = utSet.containsKey(a.uid); 
-	    MinusData minusSet = null;  // contribution of this particular action (with minus sign)
-	    if (doMinus) minusSet = new MinusData(a);
+	    // contribution of this particular action (with minus sign)
+	    MinusData minusSet = doMinus? new MinusData(a) : null;
 			
-	    if (user.ofInterest!=null) {  // update CAA for the articles of interest seen earlier by this user
-		for(int j: user.ofInterest) {
+	    user.enableOfInterest(windowSec);
+	    if (!user.ofInterest.isEmpty()) {  // update CAA for the articles of interest seen earlier by this user
+		for(int j: user.ofInterest.listArticles(a.utc)) {
 		    aSet.get(j).addValue(a.aid, 1);
 		    if (doMinus) minusSet.add(j,a.aid, -1);
 		}
 	    }
 
 	    if (caa!=null) { // this is an article of interest
-		if (user.ofInterest==null) user.ofInterest = new Vector<Integer>(2,4);
-		user.ofInterest.add(a.aid);
+		user.ofInterest.addAction(a);
 
 		CAAHashMap minusCaa = null;
 		if (doMinus) minusSet.put(a.aid, minusCaa=new CAAHashMap());
-		ActionDetails[] as = uar.earlyActionsForUser(a.uid);
+
+		ActionDetails[] as = (windowSec < 0)?
+		    uar.earlyActionsForUser(a.uid) :
+		    uar.recentActionsForUser(a.uid, a.utc-windowSec);
+
 		for(ActionDetails y: as) {	    
 		    caa.addValue(y.aid, 1);
 		    if (doMinus) minusCaa.addValue(y.aid, -1);
@@ -537,6 +548,7 @@ public class Coaccess {
 	boolean useCompact = ht.getOption("compact", true);
 	boolean useStructure = ht.getOption("structure", true);
 	double hours = ht.getOptionDouble("step", 24);
+	int windowSec = ht.getOption("window", -1);
 
 	// The number of top articles that are displayed as rec list 
 	final int n = ht.getOption("n", 10);
@@ -544,7 +556,9 @@ public class Coaccess {
 	cutoff = ht.getOption("cutoff", cutoff);
 	
 	System.out.println("Incremental mode=" + inc +
-			   (inc? ", with step=" + hours + " hrs": ""));
+			   (inc? ", with step=" + hours + " hrs": "") +
+			   ". Window=" + 
+			   (windowSec<0? "forever" : "" + windowSec + " sec"));
 	// articles whose coaccess lists we will monitor
 	Vector<Integer> articles = new Vector<Integer>();
 	// users the effect of whose actions we will measure
@@ -619,10 +633,10 @@ public class Coaccess {
 	Profiler.profiler.push(Profiler.Code.OTHER);
 	if (inc) {
 	    if (hours==0) {
-		coa.coaccessImmediate();
+		coa.coaccessImmediate(windowSec);
 	    } else {
 		final int stepSec = (int)(3600*hours);
-		coa.coaccessIncremental(stepSec);
+		coa.coaccessIncremental(stepSec, windowSec);
 	    }
 	} else {
 	    coa.coaccessFinal();

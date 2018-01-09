@@ -52,6 +52,28 @@ public class  UserActionReader extends UserActionSaver {
 	return as;	
     }
 
+    /** For a specified user, reads the actions that are within the
+	first n actions of this user, and whose timestamp is
+	&ge; startSec. 	Since it is not known in advance how many
+	actions will satisfy this condition, this method does
+	reading in reverse order, but returns a properly chronologically
+	ordered array.
+     */
+    private ActionDetails[] someRecentActionsForUser(int uid, final int n, int startUtc)  throws IOException {
+	ActionDetails[] as = new ActionDetails[n]; 
+	int cnt = 0;
+	long offset1 = users[uid].offset0 + n;
+	for(int k=n-1; k>=0; k--) {
+	    userHistoryRAF.seekObject(users[uid].offset0 + k);
+	    int actionID = userHistoryRAF.readInt();
+	    as[k] = actionRAF.read(new ActionDetails(), actionID);
+	    if (as[k].utc < startUtc) break;
+	    cnt++;
+	}	
+	return (cnt==n)? as: Arrays.copyOfRange(as, n-cnt, n);
+    }
+
+
     /** Reads all actions for the specified user */
     ActionDetails[] actionsForUser(int uid)  throws IOException {
 	return someActionsForUser(uid, users[uid].total);
@@ -62,7 +84,13 @@ public class  UserActionReader extends UserActionSaver {
 	return someActionsForUser(uid, users[uid].readCnt);
     }
 
-
+    /** For a specified user, reads the actions that are within the
+	first readCnt actions of this user, and whose timestamp is
+	&ge; startSec.
+    */
+    ActionDetails[] recentActionsForUser(int uid, int startUtc)  throws IOException {
+	return someRecentActionsForUser(uid, users[uid].readCnt, startUtc);
+    }
 
     /** Iterator for reading the stored list of actions for a given user */
     Iterator<ActionDetails> actionsForUserIt(final int uid) {

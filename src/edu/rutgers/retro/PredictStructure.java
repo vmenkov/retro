@@ -10,10 +10,8 @@ import java.util.*;
     be kept during the coaccess matrix "pseudo-real time" computation
     because at some time during the system's life they may be
     within the top n elements, or may be "candidates" for the top n.
-   
 */
 public class PredictStructure extends Coaccess {
-
 
      PredictStructure(UserActionReader _uar, Vector<Integer> _articles, int _n) {
 	 super(_uar, _articles,  new Vector<Integer>(), _n);
@@ -24,7 +22,6 @@ public class PredictStructure extends Coaccess {
 	    utSet.put(uid, new PrivacyLog());
 	 }
      }    
-
 
     void predictStructure(boolean willWrite) throws IOException {
 	final int stepSec = 3600 * 24 * 7;
@@ -41,9 +38,9 @@ public class PredictStructure extends Coaccess {
 	    // the user who carried out this action
 	    UserActionReader.UserEntry user = uar.users[a.uid];
 	    CAACompact2 caa = (CAACompact2)aSet.get(a.aid); 
-			
-	    if (user.ofInterest!=null) {  // update CAA for the articles of interest seen earlier by this user
-		for(int j: user.ofInterest) {
+	    user.enableOfInterest(ArticlesOfInterest.BASIC);
+	    if (!user.ofInterest.isEmpty()) {  // update CAA for the articles of interest seen earlier by this user
+		for(int j: user.ofInterest.listArticles(a.utc)) {
 		    CAACompact2 caz = (CAACompact2)aSet.get(j);
 		    caz.addValue(a.aid, 1);
 		    if (!caz.hasCandidates) caz.topCAA(n);
@@ -51,8 +48,7 @@ public class PredictStructure extends Coaccess {
 	    }
 
 	    if (caa!=null) { // this is an article of interest
-		if (user.ofInterest==null) user.ofInterest = new Vector<Integer>(2,4);
-		user.ofInterest.add(a.aid);
+		user.ofInterest.addAction(a);
 
 		ActionDetails[] as = uar.earlyActionsForUser(a.uid);
 		for(ActionDetails y: as) {	    

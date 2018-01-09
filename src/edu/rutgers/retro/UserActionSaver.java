@@ -110,7 +110,15 @@ class UserActionSaver {
 
 
 	/** Used in incremental coacces computation, to indicate that this user has had some actions involving this run's articles of interest. Contains the list of articles of interest the user has seen so far, or null if none has been seen yet. */
-	Vector<Integer> ofInterest=null;
+	//Vector<Integer> ofInterest=null;
+	ArticlesOfInterest ofInterest=null;
+	/** Creates the ArticlesOfInterest object for this user, as appropriate
+	    for this Coaccess run. */
+	void enableOfInterest(int windowSec) {
+	    if (ofInterest==null) 
+		ofInterest = (windowSec < 0) ? new BasicArticlesOfInterest():
+		    new WindowArticlesOfInterest(windowSec);
+	}
 
 	/** Used in incremental coacces computation, at the beginning of a new run */
 	void reset() {

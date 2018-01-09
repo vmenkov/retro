@@ -5,7 +5,10 @@ import java.util.*;
 
 import org.apache.commons.lang.mutable.*;
 
-/** A version of CAACompact modified for the "predict structure" application */
+/** A version of CAACompact modified for the "predict structure" application.
+    During a usual coccess runs, it keeps remembering the positions of "candidate
+    top values" at all stages.
+ */
 class CAACompact2  extends  CAACompact {
     
     CAACompact2() { super(); }

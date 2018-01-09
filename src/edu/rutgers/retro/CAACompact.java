@@ -14,7 +14,8 @@ class CAACompact extends CompressedRow   implements CAAList {
 	fixedStructure = false;
     }
 
-    /** Reads the structure from index file, if available.
+    /** Reads the structure from index file, if available. The values are
+	initialized with zeros.
 	@param fi Access to data files (which should be already opened)
      */
     CAACompact(PredictStructure.IndexFiles fi, int j) { 
