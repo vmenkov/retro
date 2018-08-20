@@ -253,6 +253,30 @@ public class PredictStructure extends Coaccess {
        
     static File indexDir;
 
+    /** Sample usage (from more m-structure.sh) : 
+
+<pre>
+#!/bin/csh
+
+# 1 326 396
+
+set r=4
+set d="+${r}000"
+
+set x = 1226
+while ( $x &lt; 1326 )
+
+   echo $x{000} $d
+    time java  -cp ../lib/retro.jar:../lib/commons-lang-2.4.jar \
+     -Dindex=out-index -Dprofile=false -DcanRewrite=true \
+     edu.rutgers.retro.PredictStructure \
+     arangewrite       $x{000} $d  &gt;&amp;  str-${x}k.log
+
+   @ x = ($x + $r)
+end
+</pre>
+
+     */
     static public void main(String argv[]) throws IOException {
 	ParseConfig ht = new ParseConfig();
 

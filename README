@@ -1,3 +1,7 @@
+For the output data on the entire corpus, go to
+en-myarxiv02.orie.cornell.edu : /home/vm293/arxiv/retro
+That's where the "production" runs took place.
+============================================
 I was trying to use javax.json, with the JAR file coming  from
 http://www.java2s.com/Code/Jar/j/Downloadjavaxjson102jar.htm
 or from 

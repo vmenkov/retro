@@ -29,7 +29,7 @@
  <property name="lib" location="../lib"/>
  
  <!-- A local directory where Java API docs will be put -->
- <property name="arxiv.doc" location="../doc"/>
+ <property name="arxiv.doc" location="doc"/>
  <property name="arxiv.api" location="${arxiv.doc}/html/api"/>
 
  <property name="build.tmp" location="/tmp"/>
@@ -101,29 +101,26 @@ Building a JAR file
 <!-- Build the HTML documentation directory by running Javadoc -->
 
 <target name="javadoc" depends="compile">
-  <echo message="Javadoc: Assuming the My.Arxiv version is ${arxiv.ver}"/>
 
-  <copy todir="${arxiv.doc}">
+  <!-- copy todir="${arxiv.doc}">
     <fileset dir="doc/"/>
-  </copy>
-
-  <!-- copy todir="${arxiv.doc}/html">
-    <fileset dir="sample-data/" includes="sample.xml,sample-suite-out.xml,eg-learner-param-1.xml"/>
   </copy -->
 
-  <javadoc packagenames="edu.rutgers.axs,edu.rutgers.axs.*"
+  <!-- 	   link="http://java.sun.com/j2se/1.5.0/docs/api/" -->
+
+  <javadoc packagenames="edu.rutgers.*"
 	   sourcepath="${src}"
+	   classpathref="classpath"
            destdir="${arxiv.api}"
 	   author="true"
            version="true"
            use="true"
-	   link="http://java.sun.com/j2se/1.5.0/docs/api/"
-	   header="&lt;em&gt;My.ArXiv ${arxiv.ver}&lt;/em&gt;"   
-	   windowtitle="My.ArXiv ${arxiv.ver} API" 
-	   overview="doc/html/api/overview.html">
-    <classpath refid="classpath"/>
-  </javadoc>
-
+	   link="https://docs.oracle.com/javase/8/docs/api/"
+	   header="&lt;em&gt;ArXiv.retro&lt;/em&gt;"   
+	   windowtitle="ArXiv.retro API" 
+	   overview="doc/html/api/overview.html"
+	   additionalparam="-Xdoclint:none" />
+  
   <echo message="Documentation has been assembled in ${arxiv.doc}"/>
 
 </target>

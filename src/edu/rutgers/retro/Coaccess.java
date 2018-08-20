@@ -533,7 +533,34 @@ public class Coaccess {
 
     static int cutoff=1;
 
-    
+
+    /** Commands supported:
+	<p>
+
+	<ul>
+	<li> article arxiv_id
+	<li> aid  my_arxiv_internal_id
+	</ul>
+	To test actions of specified users:
+	<ul>
+	<li> uname user_id
+	<li> uid user_internal_id
+	<li> urange u1 u2 step
+	</ul>
+
+	<p>Sample usage(from coaccess.sh):
+<pre>
+#!/bin/csh
+
+time java  -cp ../lib/retro.jar:../lib/commons-lang-2.4.jar \
+ -Dinc=true -Dcompact=true -Dindex=out-index -Dstep=24 -Dprofile=false -Dstructure=true -Dcutoff=1 \
+ edu.rutgers.retro.Coaccess uname \
+f375259a9068 0b2a849197ac e19772187909 dac0bf416e4c b4a8892d4f8b
+</pre>
+
+
+
+     */
     static public void main(String argv[]) throws IOException {
 	ParseConfig ht = new ParseConfig();
 

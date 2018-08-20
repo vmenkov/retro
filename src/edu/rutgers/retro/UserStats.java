@@ -59,7 +59,10 @@ public class UserStats {
 	final String uid;
 	String userAgent;
 	int utc0,utc1;
-	int cnt=0, acceptCnt=0;
+	/** How many actions are recorded for this user */
+	int cnt=0; 
+	/** How many of the recorded actions of this user have been accepted (i.e., the action count until the rejection decision has been made) */
+	int acceptCnt=0;
 	boolean userAgentsVary=false;
 	/** We set that flag to true if we decide that this user is too
 	    robot-like, and his activity should not be taken into account 
@@ -281,6 +284,16 @@ public class UserStats {
     static File outdir;
 
  
+    /**	Collects statistics on users from the arXiv usage log files.
+
+	Commands:
+	<ul>
+	<li> users
+        <li> userActions
+        <li> readActions
+	</ul>
+
+     */
     public static void main(String [] argv) throws IOException, java.text.ParseException, JSONException {
 
 	ht = new ParseConfig();
